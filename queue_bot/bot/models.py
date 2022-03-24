@@ -6,6 +6,9 @@ class Chats(models.Model):
     chat_vk_id = models.CharField(unique=True, null=True, max_length=20)
     chat_name = models.CharField(max_length=255)
 
+    def __str__(self):
+        return f"{self.chat_name}"
+
 
 class Admins(models.Model):
     """ старосты группы """
@@ -13,16 +16,26 @@ class Admins(models.Model):
     chat = models.ForeignKey(Chats, on_delete=models.CASCADE)
 
 
+class Members(models.Model):
+    """ участник """
+    member_vk_id = models.CharField(unique=True, null=True, max_length=11)
+    name = models.CharField(null=True, max_length=255)
+    surname = models.CharField(null=True, max_length=255)
+
+    def __str__(self):
+        return f"{self.name} {self.surname}"
+
+
 class ChatMembers(models.Model):
     """ учатсники бесед """
     chat = models.ForeignKey(Chats, on_delete=models.CASCADE)
-    member_vk_id = models.CharField(unique=True, null=True, max_length=11)
+    chat_member = models.ForeignKey(Members, on_delete=models.CASCADE, null=True)
 
 
 class Queues(models.Model):
     """ очереди """
     member_order = models.IntegerField()
-    member_vk_id = models.CharField(null=True, max_length=11)
+    queue_member = models.ForeignKey(Members, on_delete=models.CASCADE, null=True)
 
 
 class QueuesChats(models.Model):
