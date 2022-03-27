@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Chats, Admins, ChatMembers, Queues, QueuesChats, Members
+from .models import Chat, Admin, ChatMember, Queue, QueueChat, Member
 
 
 class MemberAdmin(admin.ModelAdmin):
@@ -26,9 +26,9 @@ class QueuesChatsAdmin(admin.ModelAdmin):
     list_display = ["queue_datetime", "queue_name", "chat"]
 
 
-admin.site.register(Members, MemberAdmin)
-admin.site.register(Admins, AdminsAdmin)
-admin.site.register(Chats, ChatsAdmin)
-admin.site.register(ChatMembers, ChatMembersAdmin)
-admin.site.register(Queues, QueuesAdmin)
-admin.site.register(QueuesChats, QueuesChatsAdmin)
+admin.site.register(Member, MemberAdmin)
+admin.site.register(Admin, AdminsAdmin)
+admin.site.register(Chat, ChatsAdmin)
+admin.site.register(ChatMember, ChatMembersAdmin)
+admin.site.register(Queue, QueuesAdmin)
+admin.site.register(QueueChat, QueuesChatsAdmin)
