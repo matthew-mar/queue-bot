@@ -6,4 +6,5 @@ idna==3.3
 requests==2.27.1
 sqlparse==0.4.2
 urllib3==1.26.9
+vk==2.0.2
 vk-api==11.9.7
