@@ -10,15 +10,10 @@ class Chat(models.Model):
         return f"{self.chat_name}"
 
 
-class Admin(models.Model):
-    """ старосты группы """
-    admin_vk_id = models.CharField(unique=True, null=True, max_length=11)
-    chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
-
-
 class Member(models.Model):
     """ участник """
     member_vk_id = models.CharField(unique=True, null=True, max_length=11)
+    is_admin = models.BooleanField(default=False)
     name = models.CharField(null=True, max_length=255)
     surname = models.CharField(null=True, max_length=255)
 

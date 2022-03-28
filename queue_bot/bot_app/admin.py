@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import Chat, Admin, ChatMember, Queue, QueueChat, Member
+from .models import Chat, ChatMember, Queue, QueueChat, Member
 
 
 class MemberAdmin(admin.ModelAdmin):
-    list_display = ["name", "surname"]
+    list_display = ["name", "surname", "is_admin"]
 
 
 class ChatsAdmin(admin.ModelAdmin):
@@ -27,7 +27,6 @@ class QueuesChatsAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Member, MemberAdmin)
-admin.site.register(Admin, AdminsAdmin)
 admin.site.register(Chat, ChatsAdmin)
 admin.site.register(ChatMember, ChatMembersAdmin)
 admin.site.register(Queue, QueuesAdmin)
