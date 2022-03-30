@@ -3,7 +3,7 @@ from .models import Chat, ChatMember, Queue, QueueChat, Member
 
 
 class MemberAdmin(admin.ModelAdmin):
-    list_display = ["name", "surname", "is_admin"]
+    list_display = ["name", "surname"]
 
 
 class ChatsAdmin(admin.ModelAdmin):
@@ -15,7 +15,7 @@ class AdminsAdmin(admin.ModelAdmin):
 
 
 class ChatMembersAdmin(admin.ModelAdmin):
-    list_display = ["chat_member"]
+    list_display = ["chat", "chat_member", "is_admin"]
 
 
 class QueuesAdmin(admin.ModelAdmin):

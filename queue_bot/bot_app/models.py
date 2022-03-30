@@ -13,7 +13,6 @@ class Chat(models.Model):
 class Member(models.Model):
     """ участник """
     member_vk_id = models.CharField(unique=True, null=True, max_length=11)
-    is_admin = models.BooleanField(default=False)
     name = models.CharField(null=True, max_length=255)
     surname = models.CharField(null=True, max_length=255)
 
@@ -25,6 +24,7 @@ class ChatMember(models.Model):
     """ учатсники бесед """
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
     chat_member = models.ForeignKey(Member, on_delete=models.CASCADE, null=True)
+    is_admin = models.BooleanField(default=False)
 
 
 class Queue(models.Model):
