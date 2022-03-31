@@ -4,7 +4,7 @@ django.setup()
 from pprint import pprint
 import requests
 import vk
-from ....models import Member, Chat
+from ....models import Member, Chat, ChatMember
 from .bot_utils import read_token, VkApiMethods
 
 
@@ -98,6 +98,46 @@ def members_save(profiles: list[dict]) -> None:
             ))
 
 
+def chat_members_connection(peer_id: int, profiles: list[dict], chat_info: dict):
+    """
+    сохранение в бд связи между беседой и участниками беседы.
+
+    входные данные:
+    peer_id (int): id беседы.
+    profiles (list[dict]): список словарей с информацией о каждом участнике беседы.
+    chat_info (dict): информация о беседе.
+    """
+    # получение беседы из бд
+    chat: Chat = Chat.objects.filter(chat_vk_id=peer_id)[0]
+    
+    chats: list[Chat] = [
+        chat_member.chat 
+        for chat_member in ChatMember.objects.all()
+    ]
+    if chat not in chats:
+        for member in profiles:
+            # пробегаемся по каждому участнику беседы
+            try:
+                # получение участника беседы из бд по vk id
+                chat_member: Member = Member.objects.filter(member_vk_id=member["id"])[0]
+            except IndexError:
+                """
+                если была выброшена IndexError, то в бд нет пользователя с таким
+                vk id, значит его нужно добавить в бд.
+                """
+                chat_member: Member = Member(
+                    member_vk_id=member["id"],
+                    name=member["first_name"],
+                    surname=member["last_name"]
+                ).save()
+            # сохранение связи меджу беседой и участником беседы
+            ChatMember(
+                chat=chat,
+                chat_member=chat_member,
+                is_admin=(member["id"] == chat_info["items"][0]["chat_settings"]["owner_id"])
+            ).save()
+
+
 def start_command(peer_id: int):
     """
     функция стартовой команды срабатывает, когда пользователь пишет в беседе "start"
@@ -115,6 +155,8 @@ def start_command(peer_id: int):
         # получение информации об участниках беседы
         profiles: list[dict] = api_methods.messages.get_conversation_members(peer_id=peer_id)
         members_save(profiles=profiles)
+
+        chat_members_connection(peer_id=peer_id, profiles=profiles, chat_info=chat_info)
 
 
 GROUP_ID: int = 206732640
