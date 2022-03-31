@@ -24,6 +24,80 @@ def is_group_add_message(message_text: str) -> bool:
     return len(message_text) == 0
 
 
+def chat_save(chat_info: dict, peer_id: int) -> int:
+    """
+    функция сохраняет беседу в бд.
+
+    входные данные:
+    chat_info (dict): информация о беседе из запроса.
+    peer_id (int): id беседы для отправки сообщения об ошибке.
+
+    выходные данные:
+    1 - ошибка! беседа уже сохранена
+    2 - удачное сохранение беседа
+    3 - ошибка! бот не является администратором
+    """
+    print("\nпопытка сохранения беседы")
+    
+    chat_vk_ids: list[str] = [  # vk id бесед, сохраненных в бд
+        int(chat.chat_vk_id)
+        for chat in Chat.objects.all()
+    ]
+    if peer_id in chat_vk_ids:  # если id беседы находится в бд
+        print("беседа уже сохранена")
+        return 1
+
+    try:
+        # попытка инициализации полей модели Chat
+        chat_name: str = chat_info["items"][0]["chat_settings"]["title"]
+        chat_vk_id: int = peer_id
+
+        # сохранение новой записи
+        Chat(chat_vk_id=chat_vk_id, chat_name=chat_name).save()
+        print(f"беседа {chat_name} сохранена")
+        return 2
+    except IndexError:
+        """
+        если выбрасывается IndexError, то бот не может получить доступ к данным
+        о беседе, потому что не является администратором беседы.
+
+        в этом случае выходим из функции с сообщением об ошибке.
+        """
+        print("не удалось сохранить беседу")
+        api_methods.messages.send(
+            peer_id=peer_id,
+            message="Ошибка! Сделайте бота администратором беседы."
+        )
+        return 3
+
+
+def members_save(profiles: list[dict]) -> None:
+    """
+    функция сохраняет участников беседы в бд.
+
+    входные данные:
+    profiles (list[dict]): список словарей с информацией о каждом пользователе.
+    """
+    print("\nсохранение участников беседы")
+
+    # список vk id пользователей, сохраненных в бд
+    members_vk_ids: list[int] = [
+        int(member.member_vk_id)
+        for member in Member.objects.all()
+    ]
+    for member in profiles:  # перебор участников беседы
+        if member["id"] not in members_vk_ids:  # если пользователя нет в бд
+            Member(  # сохранение пользователя в бд
+                member_vk_id=member["id"],
+                name=member["first_name"],
+                surname=member["last_name"]
+            ).save()
+            print("пользователь {name} {surname} сохранен".format(
+                name=member["first_name"],
+                surname=member["last_name"]
+            ))
+
+
 def start_command(peer_id: int):
     """
     функция стартовой команды срабатывает, когда пользователь пишет в беседе "start"
@@ -35,50 +109,12 @@ def start_command(peer_id: int):
     входные данные:
     peer_id (int): id беседы.
     """
-    chat_vk_ids: list[str] = [  # vk id бесед, сохраненных в бд
-        int(chat.chat_vk_id)
-        for chat in Chat.objects.all()
-    ]
-    if peer_id in chat_vk_ids:  # если id беседы находится в бд
-        print("беседа уже сохранена")
-        return
-
     # получение информации о беседе
     chat_info: dict = api_methods.messages.get_conversations_by_id(peer_id=peer_id)
-    try:
-        # попытка инициализации полей модели Chat
-        chat_vk_id: int = peer_id
-        chat_name: str = chat_info["items"][0]["chat_settings"]["title"]
-
-        # сохранение новой записи
-        Chat(chat_vk_id=chat_vk_id, chat_name=chat_name).save()
-        print(f"беседа {chat_name} сохранена")
-
+    if chat_save(chat_info=chat_info, peer_id=peer_id) == 2:
         # получение информации об участниках беседы
-        members_info: list[dict] = api_methods.messages.get_conversation_members(peer_id)
-        for member in members_info:
-            # в цикле каждый участник беседы сохраняется в бд
-            Member(
-                member_vk_id=member["id"],
-                name=member["first_name"],
-                surname=member["last_name"]
-            ).save()
-            print("пользователь {name} {surname} сохранен".format(
-                name=member["first_name"],
-                surname=member["last_name"]
-            ))
-        
-    except IndexError:
-        """
-        если выбрасывается IndexError, то бот не может получить доступ к данным
-        о беседе, потому что не является администратором беседы.
-
-        в этом случае выходим из функции с сообщением об ошибке.
-        """
-        return api_methods.messages.send(
-            peer_id=peer_id,
-            message="Ошибка! Сделайте бота администратором беседы."
-        )
+        profiles: list[dict] = api_methods.messages.get_conversation_members(peer_id=peer_id)
+        members_save(profiles=profiles)
 
 
 GROUP_ID: int = 206732640
