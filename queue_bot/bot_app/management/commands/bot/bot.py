@@ -8,6 +8,15 @@ from ....models import Member, Chat, ChatMember
 from .bot_utils import read_token, VkApiMethods
 
 
+GROUP_ID: int = 206732640
+VK_API_VERSION: float = 5.131
+
+# авторизация
+session: vk.Session = vk.Session(access_token=read_token())
+api: vk.API = vk.API(session, v=VK_API_VERSION)
+api_methods: VkApiMethods = VkApiMethods(api)
+
+
 def is_group_add_message(message_text: str) -> bool:
     """
     функция возвращает True, если сообщение, которое пришло боту - это 
@@ -19,7 +28,7 @@ def is_group_add_message(message_text: str) -> bool:
     когда бота добавляют в новую беседу, приходит пустое сообщение.
 
     выходные данные:
-    функция возвращает сравнение длины текста сообщения с 0.
+    функция возвращает результат сравнения длины текста сообщения с 0.
     """
     return len(message_text) == 0
 
@@ -34,7 +43,7 @@ def chat_save(chat_info: dict, peer_id: int) -> int:
 
     выходные данные:
     1 - ошибка! беседа уже сохранена
-    2 - удачное сохранение беседа
+    2 - удачное сохранение беседы
     3 - ошибка! бот не является администратором
     """
     print("\nпопытка сохранения беседы")
@@ -144,7 +153,7 @@ def start_command(peer_id: int):
     по этой команде функция пытается получить данные о беседе.
     если функции удается получить данные о беседе, то функция сохраняет беседу в бд
     затем сохраняет всех участников беседы в бд.
-    затем ставит флаг is_admin у владельца беседы.
+    затем устанвливает связь между беседами и её участниками в бд.
 
     входные данные:
     peer_id (int): id беседы.
@@ -157,15 +166,6 @@ def start_command(peer_id: int):
         members_save(profiles=profiles)
 
         chat_members_connection(peer_id=peer_id, profiles=profiles, chat_info=chat_info)
-
-
-GROUP_ID: int = 206732640
-VK_API_VERSION: float = 5.131
-
-# авторизация
-session: vk.Session = vk.Session(access_token=read_token())
-api: vk.API = vk.API(session, v=VK_API_VERSION)
-api_methods: VkApiMethods = VkApiMethods(api)
 
 
 def start() -> None:
@@ -194,13 +194,19 @@ def start() -> None:
                         message="Здравствуйте! Чтобы пользоваться моими функциями сделайте меня администратором группы. Затем позовите меня и напишите start"
                     )
                 else:
-                    message_text: str = longpoll_updates[0]["object"]["message"]["text"].lstrip("[club206732640|bot] ").lower()
+                    message_text: str = longpoll_updates[0]["object"]["message"]["text"].lstrip("[club206732640|@bboot] ")
+                    print(message_text)
                     if message_text == "start":
                         print("\nкоманда start")
                         start_command(
                             peer_id=longpoll_updates[0]["object"]["message"]["peer_id"]
                         )
                         print("продолжение работы")
+                    else:
+                        api_methods.messages.send(
+                            peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
+                            message="text"
+                        )
 
         # изменение ts для следующего запроса
         # ts - номер последнего события, начиная с которого нужно получать данные;

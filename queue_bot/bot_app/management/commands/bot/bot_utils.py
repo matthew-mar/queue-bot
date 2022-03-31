@@ -1,5 +1,6 @@
 import vk
 from vk_api.utils import get_random_id
+import json
 
 
 BOT_DIR: str = "/".join(__file__.split("/")[:-1])
@@ -37,10 +38,14 @@ class Messages(ApiSection):
         отправка сообщения через метод vk api messages.send 
         описание метода: https://vk.com/dev/messages.send
         """
+        with open(f"{BOT_DIR}/keyboard.json", "r") as keyboard_file:
+            keyboard: str = keyboard_file.read()
+
         self.api.messages.send(**{
             "peer_id": peer_id,
             "random_id": get_random_id(),
-            "message": message
+            "message": message,
+            "keyboard": keyboard
         })
     
     def get_conversations_by_id(self, peer_id: int) -> dict:
@@ -93,3 +98,9 @@ class Groups(ApiSection):
         return self.api.groups.getLongPollServer(**{
             "group_id": group_id
         })
+
+
+if __name__ == "__main__":
+    with open(f"{BOT_DIR}/keyboard.json", "r") as keyboard_file:
+        keyboard: str = keyboard_file.read()
+        print(type(keyboard))
