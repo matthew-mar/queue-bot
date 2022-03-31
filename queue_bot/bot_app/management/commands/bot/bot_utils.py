@@ -53,13 +53,23 @@ class Messages(ApiSection):
         })
         return conversations
 
+    def get_conversation_members(self, peer_id: int) -> list:
+        """
+        получение данных об участниках беседы через метод vk api messages.getConversationMembers
+        описание метода: https://dev.vk.com/method/messages.getConversationMembers
+        """
+        members_info: dict = self.api.messages.getConversationMembers(**{
+            "peer_id": peer_id
+        })
+        return members_info["profiles"]
+
 
 class Users(ApiSection):
     """ группа методов users """
     def __init__(self, api: vk.API) -> None:
         super().__init__(api)
     
-    def users_get(self, user_ids: int) -> dict:
+    def get(self, user_ids: int) -> dict:
         """
         получение данных о пользователе через метод vk api users.get
         описание метода: https://dev.vk.com/method/users.get

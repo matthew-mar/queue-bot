@@ -52,7 +52,22 @@ def start_command(peer_id: int):
 
         # сохранение новой записи
         Chat(chat_vk_id=chat_vk_id, chat_name=chat_name).save()
-        print(f"{chat_name} сохранен")
+        print(f"беседа {chat_name} сохранена")
+
+        # получение информации об участниках беседы
+        members_info: list[dict] = api_methods.messages.get_conversation_members(peer_id)
+        for member in members_info:
+            # в цикле каждый участник беседы сохраняется в бд
+            Member(
+                member_vk_id=member["id"],
+                name=member["first_name"],
+                surname=member["last_name"]
+            ).save()
+            print("пользователь {name} {surname} сохранен".format(
+                name=member["first_name"],
+                surname=member["last_name"]
+            ))
+        
     except IndexError:
         """
         если выбрасывается IndexError, то бот не может получить доступ к данным
@@ -64,6 +79,7 @@ def start_command(peer_id: int):
             peer_id=peer_id,
             message="Ошибка! Сделайте бота администратором беседы."
         )
+
 
 GROUP_ID: int = 206732640
 VK_API_VERSION: float = 5.131
@@ -102,6 +118,7 @@ def start() -> None:
                 else:
                     message_text: str = longpoll_updates[0]["object"]["message"]["text"].lstrip("[club206732640|bot] ").lower()
                     if message_text == "start":
+                        print("\nкоманда start")
                         start_command(
                             peer_id=longpoll_updates[0]["object"]["message"]["peer_id"]
                         )
