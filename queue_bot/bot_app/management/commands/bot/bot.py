@@ -5,11 +5,13 @@ from pprint import pprint
 import requests
 import vk
 from ....models import Member, Chat, ChatMember
-from .bot_utils import read_token, VkApiMethods
+from .utils.bot_utils import read_token, VkApiMethods
+from .utils.keyboard.keyboard import make_keyboard
 
 
 GROUP_ID: int = 206732640
 VK_API_VERSION: float = 5.131
+BOT_NAME: str = "[club206732640|@bboot]"
 
 # авторизация
 session: vk.Session = vk.Session(access_token=read_token())
@@ -75,7 +77,11 @@ def chat_save(chat_info: dict, peer_id: int) -> int:
         print("не удалось сохранить беседу")
         api_methods.messages.send(
             peer_id=peer_id,
-            message="Ошибка! Сделайте бота администратором беседы."
+            message="Ошибка! Сделайте бота администратором беседы.",
+            keyboard=make_keyboard(one_time=True, **{
+                "buttons_names": ["start"],
+                "buttons_colors": ["positive"]
+            })
         )
         return 3
 
@@ -107,7 +113,7 @@ def members_save(profiles: list[dict]) -> None:
             ))
 
 
-def chat_members_connection(peer_id: int, profiles: list[dict], chat_info: dict):
+def chat_members_connection(peer_id: int, profiles: list[dict], chat_info: dict) -> None:
     """
     сохранение в бд связи между беседой и участниками беседы.
 
@@ -147,25 +153,37 @@ def chat_members_connection(peer_id: int, profiles: list[dict], chat_info: dict)
             ).save()
 
 
-def start_command(peer_id: int):
+def start_command(peer_id: int) -> bool:
     """
-    функция стартовой команды срабатывает, когда пользователь пишет в беседе "start"
+    функция стартовой команды.
     по этой команде функция пытается получить данные о беседе.
     если функции удается получить данные о беседе, то функция сохраняет беседу в бд
     затем сохраняет всех участников беседы в бд.
     затем устанвливает связь между беседами и её участниками в бд.
-
+  
     входные данные:
     peer_id (int): id беседы.
+
+    выходные данные:
+    возвращает True - если удалось получить информацию о беседе и сохранить,
+    иначе возвращает False.
+
+    функция вызывается в двух режимах:
+    1. Автоматически вызывается в цикле, который пробегается по всем беседам,
+    куда добавили бота. После завершения команды, id беседы удаляется из списка.
+
+    2. Вызывается через прямой запрос пользователя к боту.
     """
+    print("\nstart command")
     # получение информации о беседе
     chat_info: dict = api_methods.messages.get_conversations_by_id(peer_id=peer_id)
     if chat_save(chat_info=chat_info, peer_id=peer_id) == 2:
         # получение информации об участниках беседы
         profiles: list[dict] = api_methods.messages.get_conversation_members(peer_id=peer_id)
         members_save(profiles=profiles)
-
         chat_members_connection(peer_id=peer_id, profiles=profiles, chat_info=chat_info)
+        return True
+    return False
 
 
 def start() -> None:
@@ -187,25 +205,25 @@ def start() -> None:
         if longpoll_updates:  # если обновления есть
             # если получено новое сообщение
             if longpoll_updates[0]["type"] == "message_new":
-                if is_group_add_message(longpoll_updates[0]["object"]["message"]["text"]):
+                message_text: str = longpoll_updates[0]["object"]["message"]["text"].lstrip(BOT_NAME).lstrip(" ").lower()
+                if is_group_add_message(message_text=message_text):
                     print("добавление в новою беседу")
                     api_methods.messages.send(
                         peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
-                        message="Здравствуйте! Чтобы пользоваться моими функциями сделайте меня администратором группы. Затем позовите меня и напишите start"
+                        message="Здравствуйте! Чтобы пользоваться моими" 
+                            "функциями сделайте меня администратором беседы.\n"
+                            "Затем позовите меня с командой start",
+                        keyboard=make_keyboard(one_time=True, **{
+                            "buttons_names": ["start"],
+                            "buttons_colors": ["positive"]
+                        })
                     )
-                else:
-                    message_text: str = longpoll_updates[0]["object"]["message"]["text"].lstrip("[club206732640|@bboot] ")
-                    print(message_text)
-                    if message_text == "start":
-                        print("\nкоманда start")
-                        start_command(
-                            peer_id=longpoll_updates[0]["object"]["message"]["peer_id"]
-                        )
-                        print("продолжение работы")
-                    else:
+                
+                if message_text == "start":
+                    if start_command(peer_id=longpoll_updates[0]["object"]["message"]["peer_id"]):
                         api_methods.messages.send(
                             peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
-                            message="text"
+                            message="Начало работы"
                         )
 
         # изменение ts для следующего запроса

@@ -1,6 +1,7 @@
 import vk
 from vk_api.utils import get_random_id
 import json
+from pprint import pprint
 
 
 BOT_DIR: str = "/".join(__file__.split("/")[:-1])
@@ -33,14 +34,11 @@ class Messages(ApiSection):
     def __init__(self, api: vk.API) -> None:
         super().__init__(api)
     
-    def send(self, peer_id: int, message: str) -> None:
+    def send(self, peer_id: int, message: str, keyboard: str = "") -> None:
         """ 
         отправка сообщения через метод vk api messages.send 
         описание метода: https://vk.com/dev/messages.send
         """
-        with open(f"{BOT_DIR}/keyboard.json", "r") as keyboard_file:
-            keyboard: str = keyboard_file.read()
-
         self.api.messages.send(**{
             "peer_id": peer_id,
             "random_id": get_random_id(),
@@ -103,4 +101,7 @@ class Groups(ApiSection):
 if __name__ == "__main__":
     with open(f"{BOT_DIR}/keyboard.json", "r") as keyboard_file:
         keyboard: str = keyboard_file.read()
-        print(type(keyboard))
+        keyboard = json.loads(keyboard)
+    
+    keyboard = json.dumps(keyboard, indent=2)
+    print(keyboard, type(keyboard))
