@@ -186,7 +186,7 @@ def start_command(peer_id: int) -> bool:
     return False
 
 
-def start() -> None:
+def run() -> None:
     # получение доступа к серверу
     longpoll_info: dict = api_methods.groups.get_longpoll_server(group_id=GROUP_ID)
     server, key, ts = longpoll_info["server"], longpoll_info["key"], longpoll_info["ts"]
@@ -205,30 +205,30 @@ def start() -> None:
         if longpoll_updates:  # если обновления есть
             # если событие является сообщением
             if longpoll_updates[0]["object"].get("message"):
-                # если сообщение из беседы
-                if longpoll_updates[0]["object"]["message"]["peer_id"] > 2000000000:
-                    # если получено новое сообщение
-                    if longpoll_updates[0]["type"] == "message_new":
-                        message_text: str = longpoll_updates[0]["object"]["message"]["text"].lstrip(BOT_NAME).lstrip(" ").lower()
-                        if is_group_add_message(message_text=message_text):
-                            print("добавление в новою беседу")
-                            api_methods.messages.send(
-                                peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
-                                message="Здравствуйте! Чтобы пользоваться моими" 
-                                    "функциями сделайте меня администратором беседы.\n"
-                                    "Затем позовите меня с командой start",
-                                keyboard=make_keyboard(one_time=True, **{
-                                    "buttons_names": ["start"],
-                                    "buttons_colors": ["positive"]
-                                })
-                            )
-
-                        if message_text == "start":
-                            if start_command(peer_id=longpoll_updates[0]["object"]["message"]["peer_id"]):
+                # если получено новое сообщение
+                if longpoll_updates[0]["type"] == "message_new":
+                    # если сообщение из беседы
+                    if longpoll_updates[0]["object"]["message"]["peer_id"] > 2000000000:
+                            message_text: str = longpoll_updates[0]["object"]["message"]["text"].lstrip(BOT_NAME).lstrip(" ").lower()
+                            if is_group_add_message(message_text=message_text):
+                                print("добавление в новою беседу")
                                 api_methods.messages.send(
                                     peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
-                                    message="Начало работы"
+                                    message="Здравствуйте! Чтобы пользоваться моими" 
+                                        "функциями сделайте меня администратором беседы.\n"
+                                        "Затем позовите меня с командой start",
+                                    keyboard=make_keyboard(one_time=True, **{
+                                        "buttons_names": ["start"],
+                                        "buttons_colors": ["positive"]
+                                    })
                                 )
+
+                            if message_text == "start":
+                                if start_command(peer_id=longpoll_updates[0]["object"]["message"]["peer_id"]):
+                                    api_methods.messages.send(
+                                        peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
+                                        message="Начало работы"
+                                    )
 
         # изменение ts для следующего запроса
         # ts - номер последнего события, начиная с которого нужно получать данные;
