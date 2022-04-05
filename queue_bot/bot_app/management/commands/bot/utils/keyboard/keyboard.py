@@ -15,7 +15,15 @@ def get_keyboard() -> dict:
         return json.loads(keyboard_template.read())
 
 
-def make_keyboard(one_time: bool = False, default_color: str = "secondary", **kwargs) -> str:
+def test_keyboard() -> str:
+    with open(f"{THIS_DIR}/test_template.json") as test_temp:
+        return test_temp.read()
+
+
+def make_keyboard(one_time: bool = False,
+    inline: bool = True,
+    default_color: str = "secondary", 
+    command: str = "", **kwargs) -> str:
         """
         функция делает клавиатуру из пользовательских кнопок
 
@@ -33,6 +41,9 @@ def make_keyboard(one_time: bool = False, default_color: str = "secondary", **kw
 
         one_time=False (bool): необязательный параметр, который отвечает за
         количество показов кнопки. Если True, то кнопка исчезнет при нажатии.
+
+        command="" (str): дополнительный параметр, который передается в payload.
+        чтобы кнопку можно было различить по типу команды.
         """
         buttons_names: list[str] = kwargs.get("buttons_names")
         if isinstance(buttons_names, type(None)):
@@ -55,19 +66,33 @@ def make_keyboard(one_time: bool = False, default_color: str = "secondary", **kw
         
         keyboard: dict = get_keyboard()
         keyboard["one_time"] = one_time
+        
+        buttons: list[dict] = []
         for i in range(len(buttons_names)):
             button: dict = get_button()
-            button["action"]["payload"] = "{\"button\": \"%d\"}" % (i + 1)
+            button["action"]["payload"] = "{\"button\": \"%d\", \"command\": \"%s\"}" % ((i + 1), command)
             button["action"]["label"] = buttons_names[i]
             button["color"] = buttons_colors[i]
-            keyboard["buttons"][0].append(button)
+            buttons.append(button)
+
+        for i in range(0, len(buttons), 2):
+            keyboard["buttons"].append(buttons[i:i+2])
+
         
         return json.dumps(keyboard, indent=2)   
 
 
 if __name__ == "__main__":
-    keyboard: str = make_keyboard(default_color="negative", **{
-        "buttons_names": ["start", "add_queue"],
-        "buttons_colors": ["secondary", "negative", "secondary"]
-    })
-    print(keyboard)
+    week_days: dict[str:int] = {  # словарь соответствий дня недели с его номером
+        "понедельник": 1,
+        "вторник": 2,
+        "среда": 3,
+        "четверг": 4,
+        "пятница": 5,
+        "суббота": 6,
+        "воскресенье": 7
+    }
+    week_days_list = list(week_days.keys())
+    for i in range(0, len(week_days_list), 3):
+        print(week_days_list[i:i+3])
+        print()

@@ -29,7 +29,7 @@ class ChatMember(models.Model):
 
 class Queue(models.Model):
     """ очереди """
-    member_order = models.IntegerField()
+    member_order = models.IntegerField(null=True)
     queue_member = models.ForeignKey(Member, on_delete=models.CASCADE, null=True)
 
 

@@ -5,8 +5,8 @@ from pprint import pprint
 import requests
 import vk
 from ....models import Member, Chat, ChatMember
-from .utils.bot_utils import read_token, VkApiMethods
-from .utils.keyboard.keyboard import make_keyboard
+from .utils.bot_utils import read_token, VkApiMethods, week_days
+from .utils.keyboard.keyboard import make_keyboard, test_keyboard
 
 
 GROUP_ID: int = 206732640
@@ -60,7 +60,7 @@ def chat_save(chat_info: dict, peer_id: int) -> int:
 
     try:
         # попытка инициализации полей модели Chat
-        chat_name: str = chat_info["items"][0]["chat_settings"]["title"]
+        chat_name: str = chat_info["items"][0]["chat_settings"]["title"].lower()
         chat_vk_id: int = peer_id
 
         # сохранение новой записи
@@ -229,6 +229,16 @@ def run() -> None:
                                         peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
                                         message="Начало работы"
                                     )
+                            
+                            if message_text == "show days":
+                                api_methods.messages.send(
+                                    peer_id=longpoll_updates[0]["object"]["message"]["peer_id"],
+                                    message="dfdsf",
+                                    keyboard=make_keyboard(
+                                        default_color="primary",
+                                        buttons_names=list(week_days.keys())
+                                    )
+                                )
 
         # изменение ts для следующего запроса
         # ts - номер последнего события, начиная с которого нужно получать данные;
