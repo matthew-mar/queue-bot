@@ -8,3 +8,4 @@ sqlparse==0.4.2
 urllib3==1.26.9
 vk==2.0.2
 vk-api==11.9.7
+week==0.0.7
