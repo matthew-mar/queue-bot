@@ -105,7 +105,7 @@ def choose_chat(peer_id: int, user_id: int) -> None:
         current_command[user_id] = "save_chat_name"
 
 
-def save_chat_name(chat_name: str, user_id: int, peer_id: int) -> None:
+def save_chat(chat_name: str, user_id: int, peer_id: int) -> None:
     """
     функция сохраняет название чата в промежуточный словарь queues
 
@@ -114,7 +114,32 @@ def save_chat_name(chat_name: str, user_id: int, peer_id: int) -> None:
 
     user_id (int): vk id пользователя
     """
-    queues[user_id] = {"chat_name": chat_name}
+    try:
+        chat: Chat = Chat.objects.filter(chat_name=chat_name)[0]
+    except IndexError:
+        """
+        если выбрасывается IndexError, то пользователь ввел имя чата,
+        которого нет в беседе.
+        """
+        chat_names: list[str] = [  # список чатов, в котором пользователь админ
+            chat_member.chat.chat_name
+            for chat_member in ChatMember.objects.filter(
+                chat_member=Member.objects.filter(member_vk_id=user_id)[0],
+                is_admin=True
+            )
+        ]
+
+        return api_methods.messages.send(
+            peer_id=peer_id,
+            message="ошибка! вы не являетесь владельцем этой беседы\n"
+                "введите имя беседы из предложенного списка.",
+            keyboard=make_keyboard(
+                default_color="primary",
+                buttons_names=chat_names
+            )
+        )
+
+    queues[user_id] = {"chat": chat}
 
     api_methods.messages.send(
         peer_id=peer_id, 
@@ -170,7 +195,7 @@ def choose_day(week_day: str, user_id: int, peer_id: int) -> None:
             message="ошибка! введите правильно день недели",
             keyboard=make_keyboard(
                 default_color="primary",
-                buttons_names=list(week_days.keys())
+                buttons_names=get_days()
             )
         )
 
@@ -186,34 +211,68 @@ def set_time(time_text: str, peer_id: int, user_id: int) -> None:
             raise ValueError
         pprint(queues)
     except ValueError:
-        api_methods.messages.send(
+        return api_methods.messages.send(
             peer_id=peer_id,
             message="ошибка! неверный формат данных"
         )
     
-    save_queue(user_id=user_id)
+    save_queue(user_id=user_id, peer_id=peer_id)
 
 
-def save_queue(user_id: int) -> None:
+def save_queue(user_id: int, peer_id: int) -> None:
     """
     сохраняет очередь в бд
     """
-    chat: Chat = Chat.objects.filter(chat_name=queues[user_id]["chat_name"])[0]
+    chat: Chat = queues[user_id]["chat"]
     queue_name: str = queues[user_id]["queue_name"]
     queue_datetime: datetime = get_datetime(
         day=queues[user_id]["day"],
         hours=queues[user_id]["time"][0],
         minutes=queues[user_id]["time"][1]
     )
-    queue: Queue = Queue()
-    queue.save()
 
-    QueueChat(
-        queue_datetime=queue_datetime,
-        queue_name=queue_name,
-        chat=chat,
-        queue=queue
-    ).save()
+    try:
+        """
+        проверка на существование очереди с введенными данными в бд.
+        """
+
+        # попытка получения очереди из бд
+        QueueChat.objects.filter(
+            chat=chat,
+            queue_name=queue_name,
+            queue_datetime=queue_datetime
+        )[0]
+
+        api_methods.messages.send(
+            peer_id=peer_id,
+            message="ошибка! такая очередь уже существует."
+        )
+    except IndexError:
+        """
+        если выбрасывается IndexError, значит такой очереди нет в бд.
+        """
+
+        # сохранение нового объекта очереди
+        queue: Queue = Queue()
+        queue.save()
+
+        # сохранение связи между очередью и беседой
+        QueueChat(
+            queue_datetime=queue_datetime,
+            queue_name=queue_name,
+            chat=chat,
+            queue=queue
+        ).save()
+
+        api_methods.messages.send(
+            peer_id=peer_id,
+            message="очередь успешно сохранена",
+        )
+
+    # удаление пользователя из послед-ти связанных команд
+    current_command.pop(user_id)
+    # удаление данных об очереди
+    queues.pop(user_id)
 
 
 def command_handler(command: str, event) -> None:
@@ -238,7 +297,7 @@ def command_handler(command: str, event) -> None:
         )
     
     if command == "save_chat_name":
-        save_chat_name(
+        save_chat(
             chat_name=event.text, 
             user_id=event.user_id,
             peer_id=event.peer_id
