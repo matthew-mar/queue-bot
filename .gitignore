@@ -131,3 +131,4 @@ dmypy.json
 token.txt
 test_bot.py
 *.coffee
+pids.txt
