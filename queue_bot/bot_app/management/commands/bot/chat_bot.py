@@ -4,9 +4,11 @@ django.setup()
 from pprint import pprint
 import requests
 import vk
-from ....models import Member, Chat, ChatMember
-from .utils.bot_utils import read_token, VkApiMethods, week_days
-from .utils.keyboard.keyboard import make_keyboard, test_keyboard
+from bot_app.models import Member, Chat, ChatMember
+from bot_app.management.commands.bot.utils.bot_utils import (
+    read_token, VkApiMethods, week_days)
+from bot_app.management.commands.bot.utils.keyboard.keyboard import (
+    make_keyboard)
 
 
 GROUP_ID: int = 206732640

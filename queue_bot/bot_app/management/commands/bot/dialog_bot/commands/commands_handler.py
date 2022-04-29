@@ -1,10 +1,7 @@
-import django
-django.setup()
+from bot_app.management.commands.bot.dialog_bot.commands.command import BotCommand
+from bot_app.management.commands.bot.dialog_bot.commands.start.start import StartCommand
+from bot_app.management.commands.bot.dialog_bot.commands.queue.queue_creator import QueueCreateCommand
 
-from .command import BotCommand
-from ...utils.bot_utils import VkApiMethods
-from .start.start import StartCommand
-from .queue.queue_creator import QueueCreateCommand
 from vk_api.longpoll import Event
 
 
@@ -17,17 +14,14 @@ class CommandsHandler:
     обработчик команд
     """
 
-    def __init__(self, api: VkApiMethods) -> None:
+    def __init__(self) -> None:
         """
         инициализируется объектом VkApiMethods для получения доступа к vk api
         """
-        # подключение к методам VkApi
-        self.__api: VkApiMethods = api
-
         # команды, которые может обрабатывать бот
         self.__commands: dict[str:BotCommand] = {
-            "начать": StartCommand(self.__api),
-            "создать очередь": QueueCreateCommand(self.__api)
+            "начать": StartCommand(),
+            "создать очередь": QueueCreateCommand()
         }
 
         # словарь для хранения текущей команды
@@ -56,10 +50,11 @@ class CommandsHandler:
             raise CommandNotExistError(f"не существует команды {event.text}")
         
         command_result = command.start(event=event)
-        if command_result != "stop":
-            self.__current_command[event.user_id] = command_result
-        else:
-            self.__current_command.pop(event.user_id)
+        if isinstance(command_result, str):
+            if command_result == "stop":
+                self.__current_command.pop(event.user_id)
+            else:
+                self.__current_command[event.user_id] = command_result
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from .bot.dialog_bot import dialog_bot
+from bot_app.management.commands.bot.dialog_bot import dialog_bot
 
 
 class Command(BaseCommand):

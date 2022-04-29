@@ -1,23 +1,19 @@
-from types import MethodType
-from typing import Any
-import django
-django.setup()
-
-from ..command import BotCommand
-from ....utils.bot_utils import VkApiMethods, get_days, get_datetime
-from ...utils import is_owner
-from .......models import Chat, ChatMember, Member, QueueChat, Queue
-from ....utils.keyboard.keyboard import make_keyboard
+from bot_app.management.commands.bot.dialog_bot.commands.command import BotCommand
+from bot_app.management.commands.bot.utils.bot_utils import (
+    get_datetime, get_days)
+from bot_app.management.commands.bot.utils.utils import is_owner
+from bot_app.models import Chat, ChatMember, Member, QueueChat, Queue
+from bot_app.management.commands.bot.utils.keyboard.keyboard import make_keyboard
 from vk_api.longpoll import Event
-from datetime import date, datetime
- 
+from datetime import datetime
+
 
 class QueueCreateCommand(BotCommand):
     """
     команда создания очередей
     """
-    def __init__(self, api: VkApiMethods) -> None:
-        super().__init__(api)
+    def __init__(self) -> None:
+        super().__init__()
 
         # текущий шаг, ключом является id пользователя, значением является метод,
         # исполняющий определенную команду
@@ -45,7 +41,7 @@ class QueueCreateCommand(BotCommand):
                     is_admin=True
                 )
             ]
-            self.api.messages.send(
+            self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="выберите беседу, в которой будет очередь",
                 keyboard=make_keyboard(
@@ -53,15 +49,15 @@ class QueueCreateCommand(BotCommand):
                     buttons_names=chat_names
                 )
             )
+            # переход к следующему шагу
+            self.__current_step[event.user_id] = self.save_chat
+            return "создать очередь"
         else:
-            self.api.messages.send(
+            self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="вы не можете создавать очереди"
             )
-
-        # переход к следующему шагу
-        self.__current_step[event.user_id] = self.save_chat
-        return "создать очередь"
+            return "stop"
 
     def save_chat(self, event: Event) -> str:
         """
@@ -72,6 +68,14 @@ class QueueCreateCommand(BotCommand):
         """
         try:
             chat: Chat = Chat.objects.filter(chat_name=event.text)[0]
+            self.__queue_info[event.user_id] = {"chat": chat}
+
+            self.api.methods.messages.send(
+                peer_id=event.peer_id, 
+                message="введите название очереди"
+            )
+
+            self.__current_step[event.user_id] = self.set_queue_name
         except IndexError:
             """
             если выбрасывается IndexError, то пользователь ввел имя чата,
@@ -84,7 +88,7 @@ class QueueCreateCommand(BotCommand):
                     is_admin=True
                 )
             ]
-            return self.api.messages.send(
+            self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! вы не являетесь владельцем этой беседы\n"
                     "введите имя беседы из предложенного списка.",
@@ -93,14 +97,6 @@ class QueueCreateCommand(BotCommand):
                     buttons_names=chat_names
                 )
             )
-        
-        self.__queue_info[event.user_id] = {"chat": chat}
-
-        self.api.messages.send(
-            peer_id=event.peer_id, 
-            message="введите название очереди"
-        )
-        self.__current_step[event.user_id] = self.set_queue_name
         return "создать очередь"
     
     def set_queue_name(self, event: Event) -> str:
@@ -112,7 +108,7 @@ class QueueCreateCommand(BotCommand):
         """
         self.__queue_info[event.user_id]["queue_name"] = event.text
 
-        self.api.messages.send(
+        self.api.methods.messages.send(
             peer_id=event.peer_id,
             message="введите день недели, в который начнется очередь",
             keyboard=make_keyboard(
@@ -143,18 +139,18 @@ class QueueCreateCommand(BotCommand):
 
         try:
             self.__queue_info[event.user_id]["day"] = week_days[event.text]
-            self.__current_step[event.user_id] = self.set_time
-            self.api.messages.send(
+            self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="укажите время, когда начнет работать очередь\n"
                     "формат ввода: hh:mm"
             )
+            self.__current_step[event.user_id] = self.set_time
         except KeyError:
             """
             если была выброшена KeyError, то пользователь не ввел название дня
             недели.
             """
-            self.api.messages.send(
+            self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! введите правильно день недели",
                 keyboard=make_keyboard(
@@ -180,7 +176,7 @@ class QueueCreateCommand(BotCommand):
             if hours > 23 or minutes > 60 or hours < 0 or minutes < 0:
                 raise ValueError
         except ValueError:
-            return self.api.messages.send(
+            return self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! неверный формат данных"
             )
@@ -215,7 +211,7 @@ class QueueCreateCommand(BotCommand):
                 queue_name=queue_name,
                 queue_datetime=queue_datetime)[0]
 
-            self.api.messages.send(
+            self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! такая очередь уже существует."
             )
@@ -235,7 +231,7 @@ class QueueCreateCommand(BotCommand):
                 chat=chat,
                 queue=queue).save()
 
-            self.api.messages.send(
+            self.api.methods.messages.send(
                 peer_id=event.peer_id,
                 message="очередь успешно сохранена",
             )

@@ -1,7 +1,5 @@
-import django
-django.setup()
-
-from ...utils.bot_utils import VkApiMethods
+from typing import Any
+from bot_app.management.commands.bot.utils.api import Api
 from abc import ABC
 
 
@@ -10,14 +8,14 @@ class BotCommand(ABC):
     абстрактный клаcc, описывающий работу команды бота
     """
 
-    def __init__(self, api: VkApiMethods) -> None:
+    def __init__(self) -> None:
         """
         команда инициализируется объектом VkApiNethods
         для получения доступа к методам vk api
         """
-        self.api = api
+        self.api: Api = Api()
     
-    def start(self, event, **kwargs) -> None:
+    def start(self, event, **kwargs) -> Any:
         """
         виртуальная функция для начала выполнения команды
 

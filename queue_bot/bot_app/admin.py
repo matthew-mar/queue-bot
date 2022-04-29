@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Chat, ChatMember, Queue, QueueChat, Member
+from bot_app.models import Chat, ChatMember, Queue, QueueChat, Member
 
 
 class MemberAdmin(admin.ModelAdmin):

@@ -1,7 +1,4 @@
-import django
-django.setup()
-
-from .....models import Member, ChatMember
+from bot_app.models import Member, ChatMember
 
 
 def is_owner(user_id: int, peer_id: int) -> bool:
