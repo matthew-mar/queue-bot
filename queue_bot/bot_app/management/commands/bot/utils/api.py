@@ -1,13 +1,12 @@
+import vk
 from bot_app.management.commands.bot.utils.bot_utils import read_token
-from vk_api import VkApi
-from vk_api.utils import get_random_id
-from vk import API
 from abc import ABC
+from vk_api.utils import get_random_id
 
 
 class VkApiMethods:
     """ методы vk api """
-    def __init__(self, api: API) -> None:
+    def __init__(self, api: vk.API) -> None:
         self.users = Users(api)
         self.groups = Groups(api)
         self.messages = Messages(api)
@@ -15,13 +14,13 @@ class VkApiMethods:
 
 class ApiSection(ABC):
     """ группа методов vk api """
-    def __init__(self, api: API) -> None:
-        self.api = api
+    def __init__(self, api: vk.API) -> None:
+        self.api: vk.API = api
 
 
 class Messages(ApiSection):
     """ группа методов messages """
-    def __init__(self, api: API) -> None:
+    def __init__(self, api: vk.API) -> None:
         super().__init__(api)
     
     def send(self, peer_id: int, message: str, keyboard: str = "") -> None:
@@ -59,7 +58,7 @@ class Messages(ApiSection):
 
 class Users(ApiSection):
     """ группа методов users """
-    def __init__(self, api: API) -> None:
+    def __init__(self, api: vk.API) -> None:
         super().__init__(api)
     
     def get(self, user_ids: int) -> dict:
@@ -75,7 +74,7 @@ class Users(ApiSection):
 
 class Groups(ApiSection):
     """ группа методов groups """
-    def __init__(self, api: API) -> None:
+    def __init__(self, api: vk.API) -> None:
         super().__init__(api)
     
     def get_longpoll_server(self, group_id: int) -> dict:
@@ -88,21 +87,20 @@ class Groups(ApiSection):
         })
 
 
-class Api:
-    __api = None
+class Session:
+    """ класс описывает взаимодействие с vk api """
+    __instance = None
+    
+    __VK_API_VERSION: float = 5.131
 
-    __session: VkApi = VkApi(token=read_token())
-    __methods: VkApiMethods = VkApiMethods(__session.get_api())
+    def __new__(cls) -> "Session":
+        if cls.__instance is None:
+            cls.__instance = super(Session, cls).__new__(cls)
+            cls.__session = vk.Session(access_token=read_token())
+            cls.__api = VkApiMethods(vk.API(session=cls.__session, v=cls.__VK_API_VERSION))
+        return cls.__instance
 
-    def __new__(cls) -> None:
-        if cls.__api is None:
-            cls.__api = super(Api, cls).__new__(cls)
+    @property
+    def api(cls) -> VkApiMethods:
+        """ свойство доступа к методам api """
         return cls.__api
-
-    @property
-    def methods(cls) -> VkApiMethods:
-        return cls.__methods
-
-    @property
-    def session(cls) -> VkApi:
-        return cls.__session

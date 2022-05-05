@@ -41,7 +41,7 @@ class QueueCreateCommand(BotCommand):
                     is_admin=True
                 )
             ]
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="выберите беседу, в которой будет очередь",
                 keyboard=make_keyboard(
@@ -53,7 +53,7 @@ class QueueCreateCommand(BotCommand):
             self.__current_step[event.user_id] = self.save_chat
             return "создать очередь"
         else:
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="вы не можете создавать очереди"
             )
@@ -70,7 +70,7 @@ class QueueCreateCommand(BotCommand):
             chat: Chat = Chat.objects.filter(chat_name=event.text)[0]
             self.__queue_info[event.user_id] = {"chat": chat}
 
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id, 
                 message="введите название очереди"
             )
@@ -88,7 +88,7 @@ class QueueCreateCommand(BotCommand):
                     is_admin=True
                 )
             ]
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! вы не являетесь владельцем этой беседы\n"
                     "введите имя беседы из предложенного списка.",
@@ -108,7 +108,7 @@ class QueueCreateCommand(BotCommand):
         """
         self.__queue_info[event.user_id]["queue_name"] = event.text
 
-        self.api.methods.messages.send(
+        self.api.api.messages.send(
             peer_id=event.peer_id,
             message="введите день недели, в который начнется очередь",
             keyboard=make_keyboard(
@@ -139,7 +139,7 @@ class QueueCreateCommand(BotCommand):
 
         try:
             self.__queue_info[event.user_id]["day"] = week_days[event.text]
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="укажите время, когда начнет работать очередь\n"
                     "формат ввода: hh:mm"
@@ -150,7 +150,7 @@ class QueueCreateCommand(BotCommand):
             если была выброшена KeyError, то пользователь не ввел название дня
             недели.
             """
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! введите правильно день недели",
                 keyboard=make_keyboard(
@@ -176,7 +176,7 @@ class QueueCreateCommand(BotCommand):
             if hours > 23 or minutes > 60 or hours < 0 or minutes < 0:
                 raise ValueError
         except ValueError:
-            return self.api.methods.messages.send(
+            return self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! неверный формат данных"
             )
@@ -211,7 +211,7 @@ class QueueCreateCommand(BotCommand):
                 queue_name=queue_name,
                 queue_datetime=queue_datetime)[0]
 
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! такая очередь уже существует."
             )
@@ -231,7 +231,7 @@ class QueueCreateCommand(BotCommand):
                 chat=chat,
                 queue=queue).save()
 
-            self.api.methods.messages.send(
+            self.api.api.messages.send(
                 peer_id=event.peer_id,
                 message="очередь успешно сохранена",
             )
