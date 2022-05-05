@@ -1,8 +1,7 @@
+from pprint import pprint
 import requests
-
 from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
-from bot_app.management.commands.bot.utils.server.event import Event
-from bot_app.management.commands.bot.utils.server.response import Response
+from bot_app.management.commands.bot.utils.server.responses import LongpollResponse, Event
 
 
 class Longpoll:
@@ -26,6 +25,7 @@ class Longpoll:
                 "ts": ts,
                 "wait": 25
             }).json()
-            response: Response = Response(longpoll_response=longpoll_response)
+            # pprint(longpoll_response)
+            response: LongpollResponse = LongpollResponse(longpoll_response=longpoll_response)
             yield response.get_event()
             ts = longpoll_response["ts"]

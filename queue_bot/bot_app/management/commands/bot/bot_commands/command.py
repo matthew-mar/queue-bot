@@ -1,5 +1,5 @@
 from typing import Any
-from bot_app.management.commands.bot.utils.api import Session
+from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
 from abc import ABC
 
 
@@ -13,7 +13,7 @@ class BotCommand(ABC):
         команда инициализируется объектом VkApiNethods
         для получения доступа к методам vk api
         """
-        self.api: Session = Session()
+        self.api: VkApiMethods = Session().api
     
     def start(self, event, **kwargs) -> Any:
         """

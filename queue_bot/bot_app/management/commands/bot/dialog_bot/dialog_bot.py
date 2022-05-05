@@ -1,6 +1,6 @@
 from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
 from vk_api.longpoll import VkLongPoll, VkEventType
-from bot_app.management.commands.bot.dialog_bot.commands.commands_handler import (
+from bot_app.management.commands.bot.dialog_bot.commands.dialog_commands_handler import (
     CommandNotExistError, CommandsHandler)
 from pprint import pprint
 

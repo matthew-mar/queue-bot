@@ -1,4 +1,4 @@
-from bot_app.management.commands.bot.dialog_bot.commands.command import BotCommand
+from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.utils.utils import is_owner
 from bot_app.management.commands.bot.utils.keyboard.keyboard import make_keyboard
 from bot_app.management.commands.bot.utils.api import Session
