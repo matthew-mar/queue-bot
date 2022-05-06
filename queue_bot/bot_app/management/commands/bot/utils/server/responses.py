@@ -310,10 +310,32 @@ class ConversationsResponse:
 
 
 class MembersResponse:
-    """ обработчик ответа от метода api message get_conversation_members """
+    """ обработчик ответа от метода api messages.get_conversation_members """
     def __init__(self, members: dict) -> None:
         self.__members_response: dict = members
     
     @property
     def profiles(self) -> list[dict]:
         return self.__members_response.get("profiles")
+
+
+class UsersResponse:
+    """ обработчик ответа от метода api users.get """
+    def __init__(self, user_response: dict) -> None:
+        self.__user: dict = user_response
+
+    @property
+    def user(self) -> dict:
+        return self.__user
+    
+    @property
+    def id(self) -> int:
+        return self.user["id"]
+    
+    @property
+    def first_name(self) -> str:
+        return self.user["first_name"]
+    
+    @property
+    def last_name(self) -> str:
+        return self.user["last_name"]

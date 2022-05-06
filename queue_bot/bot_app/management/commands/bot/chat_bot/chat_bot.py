@@ -21,5 +21,4 @@ class ChatBot(Bot):
                         )
 
 
-chat_bot: ChatCommandsHandler = ChatBot(commands_handler=ChatCommandsHandler())
- 
+chat_bot: ChatBot = ChatBot(commands_handler=ChatCommandsHandler())

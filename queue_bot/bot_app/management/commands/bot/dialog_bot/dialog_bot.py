@@ -1,30 +1,23 @@
-from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
-from vk_api.longpoll import VkLongPoll, VkEventType
-from bot_app.management.commands.bot.dialog_bot.commands.dialog_commands_handler import (
-    CommandNotExistError, CommandsHandler)
-from pprint import pprint
+from bot_app.management.commands.bot.bot import Bot
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import CommandNotExistError
+from bot_app.management.commands.bot.dialog_bot.commands.dialog_commands_handler import DialogCommandsHandler
+from bot_app.management.commands.bot.utils.server.responses import Event
 
 
-GROUP_ID: int = 206732640
+class DialogBot(Bot):
+    """ бот обработчик личных сообщений """
+    def run(self) -> None:
+        for event in self.longpoll.listen():
+            event: Event = event
+            if event.from_dialog:
+                if event.to_me:
+                    try:
+                        self.commands_handler.handle(event=event)
+                    except CommandNotExistError:
+                        self.vk_api.messages.send(
+                            peer_id=event.peer_id,
+                            message="несуществующая команда"
+                        )
 
 
-session: Session = Session(group_id=GROUP_ID)
-api: VkApiMethods = session.api
-commands_handler: CommandsHandler = CommandsHandler()
-
-
-def run():
-    longpoll: VkLongPoll = VkLongPoll(session.session) 
-
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW:
-            if event.to_me:
-                try:
-                    # отправляем событие на обработку обработчику команд
-                    commands_handler.handle(event=event)
-                except CommandNotExistError as error:
-                    session.api.messages.send(
-                        peer_id=event.peer_id,
-                        message=error.args[0]
-                    )
-                
+dialog_bot: DialogBot = DialogBot(commands_handler=DialogCommandsHandler())

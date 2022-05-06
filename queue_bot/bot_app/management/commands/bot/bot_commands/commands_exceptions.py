@@ -4,3 +4,7 @@ class CommandNotExistError(Exception):
 
 class ChatAlreadySavedError(Exception):
     pass
+
+
+class MemberNotSavedError(Exception):
+    pass

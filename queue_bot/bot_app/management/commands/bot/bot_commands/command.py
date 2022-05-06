@@ -1,6 +1,7 @@
 from typing import Any
 from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
 from abc import ABC
+from bot_app.management.commands.bot.utils.server.responses import Event
 
 
 class BotCommand(ABC):
@@ -15,7 +16,7 @@ class BotCommand(ABC):
         """
         self.api: VkApiMethods = Session().api
     
-    def start(self, event, **kwargs) -> Any:
+    def start(self, event: Event, **kwargs) -> Any:
         """
         виртуальная функция для начала выполнения команды
 
