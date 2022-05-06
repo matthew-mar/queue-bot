@@ -22,4 +22,3 @@ class ChatCommandsHandler(CommandsHandler):
             command.start(event=event)
         except KeyError:
             raise CommandNotExistError()
-

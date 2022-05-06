@@ -46,7 +46,7 @@ class ChatStartCommand(BotCommand):
                 members: list[Member] = self.__members_save(members_response)
 
                 # сохранение связи между беседой и участниками
-                self.__chat_members_connection(chat, members, conversation_response)
+                self.__chat_members_connection(chat, members_response.profiles, conversation_response)
 
                 self.api.messages.send(
                     peer_id=event.peer_id,
@@ -116,12 +116,20 @@ class ChatStartCommand(BotCommand):
     
     def __chat_members_connection(self, 
         chat: Chat, 
-        members: list[Member],
+        profiles: list[dict],
         conversation_response: ConversationsResponse) -> None:
         """ сохранение в бд связи между беседой и участниками беседы """
-        for member in members:
+        members: list[Member] = [  # список участников беседы, сохраненных в бд
+            Member.objects.filter(
+                member_vk_id=member["id"],
+                name=member["first_name"],
+                surname=member["last_name"]
+            )[0]
+            for member in profiles
+        ]
+        for member in members:  # сохранение участников
             ChatMember(
                 chat=chat,
                 chat_member=member,
-                is_admin=(member.member_vk_id == conversation_response.owner_id)
+                is_admin=(int(member.member_vk_id) == conversation_response.owner_id)
             ).save()
