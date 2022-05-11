@@ -25,7 +25,7 @@ class Longpoll:
                 "ts": ts,
                 "wait": 25
             }).json()
-            # pprint(longpoll_response)
+            pprint(longpoll_response)
             response: LongpollResponse = LongpollResponse(longpoll_response=longpoll_response)
             yield response.get_event()
             ts = longpoll_response["ts"]

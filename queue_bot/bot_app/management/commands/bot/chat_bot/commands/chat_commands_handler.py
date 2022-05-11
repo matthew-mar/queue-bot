@@ -1,6 +1,6 @@
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import CommandNotExistError
-from bot_app.management.commands.bot.chat_bot.commands.commands import ChatInvitationCommand, ChatStartCommand, CickUserCommand
+from bot_app.management.commands.bot.chat_bot.commands.commands import ChatInvitationCommand, ChatStartCommand, CickUserCommand, InviteUserCommand
 from bot_app.management.commands.bot.utils.server.responses import Event, EventType
 from bot_app.management.commands.bot.bot_commands.commands_handler import CommandsHandler
 
@@ -21,8 +21,9 @@ class ChatCommandsHandler(CommandsHandler):
 
             if command_text == "":
                 if event.action_type == EventType.CHAT_CICK_USER:
-                    print("we here")
                     self._commands[""] = CickUserCommand()
+                elif event.action_type == EventType.CHAT_INVITE_USER:
+                    self._commands[""] = InviteUserCommand()
                 elif event.action_type is None:
                     self._commands[""] = ChatInvitationCommand()
             

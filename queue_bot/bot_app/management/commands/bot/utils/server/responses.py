@@ -14,6 +14,8 @@ class EventType:
 
     CHAT_CICK_USER = "chat_kick_user"
 
+    CHAT_INVITE_USER = "chat_invite_user"
+
 
 class Event(ABC):
     """ событие LongPoll сервера """

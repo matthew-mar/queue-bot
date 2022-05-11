@@ -2,7 +2,7 @@ from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError
-from bot_app.management.commands.bot.utils.server.responses import ConversationsResponse, Event, MembersResponse
+from bot_app.management.commands.bot.utils.server.responses import ConversationsResponse, Event, MembersResponse, UsersResponse
 from bot_app.management.commands.bot.utils.keyboard.keyboard import make_keyboard
 from bot_app.models import Chat, ChatMember, Member
 
@@ -153,3 +153,36 @@ class CickUserCommand(BotCommand):
             chat=chat
         )[0]
         chat_member.delete()
+
+
+class InviteUserCommand(BotCommand):
+    """ команда добавления пользоателя """
+    def __init__(self) -> None:
+        super().__init__()
+
+    def start(self, event: Event, **kwargs) -> Any:
+        """ создание связи между новым пользователем и беседой """
+        try:
+            new_member: Member = Member.objects.filter(
+                member_vk_id=event.action["member_id"]
+            )[0]
+        except IndexError:
+            """ 
+            если выброшена IndexError то пользователя с таким id 
+            нет в бд. Значит пользователя нужно сохранить
+            """
+            member_response: UsersResponse = UsersResponse(self.api.users.get(event.action["member_id"]))
+            new_member: Member = Member(
+                member_vk_id=member_response.id,
+                name=member_response.first_name,
+                surname=member_response.last_name
+            ).save()
+        finally:
+            chat: Chat = Chat.objects.filter(
+                chat_vk_id=event.peer_id
+            )[0]
+            ChatMember(
+                chat=chat,
+                chat_member=new_member,
+                is_admin=False
+            ).save()
