@@ -12,6 +12,8 @@ class EventType:
 
     MESSAGE_REPLY = "message_reply"
 
+    CHAT_CICK_USER = "chat_kick_user"
+
 
 class Event(ABC):
     """ событие LongPoll сервера """
@@ -45,6 +47,12 @@ class Event(ABC):
     @property
     def object(self) -> dict:
         return self._object
+
+    @property
+    def action(self) -> dict: return None
+
+    @property
+    def action_type(self) -> str: return None
 
     @property
     def attachments(self) -> list: return None
@@ -105,6 +113,15 @@ class MessageNew(Event):
     """ событие нового сообщения """
     def __init__(self, obj: dict) -> None:
         super().__init__(obj)
+
+    @property
+    def action(self) -> dict:
+        return self.object["message"].get("action")
+
+    @property
+    def action_type(self) -> str:
+        if self.action != None:
+            return self.action["type"]
     
     @property
     def attachments(self) -> list:

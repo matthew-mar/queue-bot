@@ -289,7 +289,7 @@ class QueueCreateCommand(BotCommand):
         }
         startdate = Week.thisweek().startdate
         original_month = int(startdate.strftime("%m"))
-        days = int(startdate.strftime("%d")) + day
+        days = int(startdate.strftime("%d")) + day - 1
         month = original_month + (days // months[original_month])
         days %= months[original_month] - 1
 

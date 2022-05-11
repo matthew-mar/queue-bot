@@ -133,3 +133,23 @@ class ChatStartCommand(BotCommand):
                 chat_member=member,
                 is_admin=(int(member.member_vk_id) == conversation_response.owner_id)
             ).save()
+
+
+class CickUserCommand(BotCommand):
+    """ команда удаления пользователя из беседы """
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def start(self, event: Event, **kwargs) -> Any:
+        """ удаление связи между пользователем и беседой """
+        kicked_member: Member = Member.objects.filter(
+            member_vk_id=event.action["member_id"]
+        )[0]
+        chat: Chat = Chat.objects.filter(
+            chat_vk_id=event.peer_id
+        )[0]
+        chat_member: ChatMember = ChatMember.objects.filter(
+            chat_member=kicked_member,
+            chat=chat
+        )[0]
+        chat_member.delete()
