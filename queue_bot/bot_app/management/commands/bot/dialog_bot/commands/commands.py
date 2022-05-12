@@ -1,8 +1,9 @@
 from asyncio import events
+import json
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError
-from bot_app.management.commands.bot.utils.server.responses import Event, UsersResponse
+from bot_app.management.commands.bot.utils.server.responses import Event, MembersResponse, UsersResponse
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 from bot_app.management.commands.bot.utils.keyboard.keyboard import make_keyboard
 from bot_app.management.commands.bot.utils.api import Session
@@ -188,12 +189,49 @@ class QueueCreateCommand(BotCommand):
             if time[0] > 23 or time[1] > 60 or time[0] < 0 or time[1] < 0:
                 raise ValueError
             self.__queue_info[event.from_id]["time"] = time
-            self.save_queue(event)
+
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=(
+                    "Добавить участников беседы в очередь?\n"
+                    "Да - участники беседы добавятся автоматически по порядку\n"
+                    "Нет - участники беседы будут сами записываться в произвольном порядке"
+                ),
+                keyboard=make_keyboard(
+                    buttons_names=["да", "нет"]
+                )
+            )
+            self.__current_step[event.from_id] = self.save_users
         except ValueError:
             return self.api.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! неверный формат данных"
             )
+
+    def save_users(self, event: Event) -> None:
+        """ сохранение пользователей """
+        if event.text == "да":
+            chat_members: dict = self.api.messages.get_conversation_members(
+                peer_id=self.__queue_info[event.from_id]["chat"].chat_vk_id
+            )
+            members_response: MembersResponse = MembersResponse(chat_members)
+            members: list = list(map(
+                lambda profile: {"member": profile.user_id},
+                members_response.profiles
+            ))
+            queue: Queue = Queue(
+                queue_name=self.__queue_info[event.from_id]["queue_name"],
+                queue_members=json.dumps(members))
+            queue.save()
+        elif event.text == "нет":
+            print("we here")
+            queue: Queue = Queue(
+                queue_name=self.__queue_info[event.from_id]["queue_name"],
+                queue_members="[]"
+            )
+            queue.save()
+        self.__queue_info[event.from_id]["queue"] = queue
+        self.save_queue(event=event)
     
     def save_queue(self, event: Event) -> None:
         """ сохраняет очередь в бд """
@@ -201,7 +239,7 @@ class QueueCreateCommand(BotCommand):
 
         queue_info: dict = self.__queue_info[event.from_id]
         chat: Chat = queue_info["chat"]
-        queue_name: str = queue_info["queue_name"]
+        queue: Queue = queue_info["queue"]
         queue_datetime: datetime = self.__get_datetime(
             day=queue_info["day"],
             hours=queue_info["time"][0],
@@ -212,12 +250,11 @@ class QueueCreateCommand(BotCommand):
             """
             проверка на существование очереди с введенными данными в бд.
             """
-
             # попытка получения очереди из бд
             QueueChat.objects.filter(
+                queue_datetime=queue_datetime,
                 chat=chat,
-                queue_name=queue_name,
-                queue_datetime=queue_datetime)[0]
+                queue=queue)[0]
 
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -227,15 +264,9 @@ class QueueCreateCommand(BotCommand):
             """
             если выбрасывается IndexError, значит такой очереди нет в бд.
             """
-
-            # сохранение нового объекта очереди
-            queue: Queue = Queue()
-            queue.save()
-
-            # сохранение связи между очередью и беседой
+            # # сохранение связи между очередью и беседой
             QueueChat(
                 queue_datetime=queue_datetime,
-                queue_name=queue_name,
                 chat=chat,
                 queue=queue).save()
 

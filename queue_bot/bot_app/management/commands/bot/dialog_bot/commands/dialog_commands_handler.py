@@ -17,13 +17,11 @@ class DialogCommandsHandler(CommandsHandler):
             command_text: str = event.text.lower()
             if event.from_id in self._current_command:
                 if self._commands["создать очередь"].queue_saved(event.from_id):
-                    print("we here")
                     self._current_command.pop(event.from_id)
             if command_text == "создать очередь":
                 self._current_command[event.from_id] = "создать очередь"
             if self._current_command.get(event.from_id) != None:
                 command_text: str = self._current_command[event.from_id]
-            print(command_text)
             command: BotCommand = self._commands[command_text]
             command.start(event)
         except KeyError:

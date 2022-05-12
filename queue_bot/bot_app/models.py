@@ -28,14 +28,16 @@ class ChatMember(models.Model):
 
 
 class Queue(models.Model):
-    """ очереди """
-    member_order = models.IntegerField(null=True)
-    queue_member = models.ForeignKey(Member, on_delete=models.CASCADE, null=True)
+    """ очередь участников """
+    queue_name = models.CharField(max_length=255, null=True)
+    queue_members = models.JSONField()
+
+    def __str__(self):
+        return f"{self.id} - {self.queue_name}"
 
 
 class QueueChat(models.Model):
     """ промежуточная сущность между беседами и очередями """
     queue_datetime = models.DateTimeField()
-    queue_name = models.CharField(max_length=255, null=True)
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
     queue = models.ForeignKey(Queue, on_delete=models.CASCADE)

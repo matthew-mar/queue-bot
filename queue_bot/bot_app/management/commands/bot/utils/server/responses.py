@@ -328,14 +328,34 @@ class ConversationsResponse:
         return self.chat_settings.get("owner_id")
 
 
+class Profile:
+    """ сборник данных о профиле из MembersResponse """
+    def __init__(self, profile: dict):
+        self.profile: dict = profile
+    
+    @property
+    def first_name(self) -> str:
+        return self.profile["first_name"]
+    
+    @property
+    def user_id(self) -> int:
+        return self.profile["id"]
+    
+    @property
+    def last_name(self) -> str:
+        return self.profile["last_name"]
+
+
 class MembersResponse:
     """ обработчик ответа от метода api messages.get_conversation_members """
     def __init__(self, members: dict) -> None:
         self.__members_response: dict = members
     
     @property
-    def profiles(self) -> list[dict]:
-        return self.__members_response.get("profiles")
+    def profiles(self) -> list[Profile]:
+        profiles: list[dict] = self.__members_response.get("profiles")
+        if profiles != None:
+            return list(map(Profile, profiles))
 
 
 class UsersResponse:

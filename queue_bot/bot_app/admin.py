@@ -1,5 +1,5 @@
 from django.contrib import admin
-from bot_app.models import Chat, ChatMember, Queue, QueueChat, Member
+from bot_app.models import Chat, ChatMember, Queue, Member, QueueChat
 
 
 class MemberAdmin(admin.ModelAdmin):
@@ -19,11 +19,11 @@ class ChatMembersAdmin(admin.ModelAdmin):
 
 
 class QueuesAdmin(admin.ModelAdmin):
-    list_display = ["member_order", "queue_member"]
+    list_display = ["queue_name", "queue_members"]
 
 
 class QueuesChatsAdmin(admin.ModelAdmin):
-    list_display = ["queue_datetime", "queue_name", "chat"]
+    list_display = ["queue_datetime", "queue", "chat"]
 
 
 admin.site.register(Member, MemberAdmin)
