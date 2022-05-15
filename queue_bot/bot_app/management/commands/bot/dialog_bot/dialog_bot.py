@@ -1,6 +1,7 @@
 from bot_app.management.commands.bot.bot import Bot
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import CommandNotExistError
 from bot_app.management.commands.bot.dialog_bot.commands.dialog_commands_handler import DialogCommandsHandler
+from bot_app.management.commands.bot.dialog_bot.signals.dialog_signals_handler import DialogSignalsHandler
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event
 
 
@@ -20,4 +21,7 @@ class DialogBot(Bot):
                         )
 
 
-dialog_bot: DialogBot = DialogBot(commands_handler=DialogCommandsHandler())
+dialog_bot: DialogBot = DialogBot(
+    commands_handler=DialogCommandsHandler(),
+    signals_handler=DialogSignalsHandler()
+)

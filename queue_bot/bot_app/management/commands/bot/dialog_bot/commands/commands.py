@@ -1,6 +1,7 @@
 from asyncio import events
 import json
 from typing import Any
+from bot_app.bot_api.bot_api import BotApi
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError, QueueAlreadySaved
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, MembersResponse, UsersResponse
@@ -272,6 +273,21 @@ class QueueCreateCommand(BotCommand):
                 peer_id=event.peer_id,
                 message="очередь успешно сохранена",
             )
+
+            bot_api: BotApi = BotApi()
+            data={
+                "signal_name": "new_queue",
+                "args": {
+                    "chat_id": chat.chat_vk_id,
+                    "queue_id": queue.id,
+                    "queue_day": queue_datetime.strftime("%d.%m"),
+                    "queue_start_time": "{hour}:{minutes}".format(
+                        hour=queue_info["time"][0], 
+                        minutes=queue_info["time"][1]),
+                    "members_saved": not queue.queue_members == "[]"
+                }
+            }
+            bot_api.send_signal(to="chat", data={"data": json.dumps(data)})
         except QueueAlreadySaved:
             queue_info["queue"].delete()
             self.api.messages.send(
