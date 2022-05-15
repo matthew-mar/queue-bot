@@ -1,7 +1,7 @@
 from pprint import pprint
 import requests
-from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
-from bot_app.management.commands.bot.utils.server.responses import LongpollResponse, Event
+from bot_app.management.commands.bot.vk_api.vk_api import Session, VkApiMethods
+from bot_app.management.commands.bot.vk_api.longpoll.responses import LongpollResponse, Event
 
 
 class Longpoll:

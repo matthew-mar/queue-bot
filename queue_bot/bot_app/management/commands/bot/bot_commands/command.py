@@ -1,7 +1,7 @@
 from typing import Any
-from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
+from bot_app.management.commands.bot.vk_api.vk_api import Session, VkApiMethods
 from abc import ABC
-from bot_app.management.commands.bot.utils.server.responses import Event
+from bot_app.management.commands.bot.vk_api.longpoll.responses import Event
 
 
 class BotCommand(ABC):

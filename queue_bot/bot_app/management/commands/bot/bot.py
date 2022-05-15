@@ -1,8 +1,7 @@
 from abc import ABC
 from bot_app.management.commands.bot.bot_commands.commands_handler import CommandsHandler
-
-from bot_app.management.commands.bot.utils.api import Session, VkApiMethods
-from bot_app.management.commands.bot.utils.server.longpoll import Longpoll
+from bot_app.management.commands.bot.vk_api.vk_api import Session, VkApiMethods
+from bot_app.management.commands.bot.vk_api.longpoll.longpoll import Longpoll
 
 
 class Bot(ABC):

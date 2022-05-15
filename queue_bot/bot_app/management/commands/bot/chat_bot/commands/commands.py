@@ -2,8 +2,8 @@ from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError
-from bot_app.management.commands.bot.utils.server.responses import ConversationsResponse, Event, MembersResponse, Profile, UsersResponse
-from bot_app.management.commands.bot.utils.keyboard.keyboard import make_keyboard
+from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, Event, MembersResponse, Profile, UsersResponse
+from bot_app.management.commands.bot.vk_api.keyboard.keyboard import make_keyboard
 from bot_app.models import Chat, ChatMember, Member
 
 

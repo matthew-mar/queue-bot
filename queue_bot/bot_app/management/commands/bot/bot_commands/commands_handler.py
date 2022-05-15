@@ -1,4 +1,4 @@
-from bot_app.management.commands.bot.utils.server.responses import Event
+from bot_app.management.commands.bot.vk_api.longpoll.responses import Event
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from abc import ABC
 

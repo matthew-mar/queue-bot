@@ -2,7 +2,7 @@ from pprint import pprint
 from bot_app.management.commands.bot.bot import Bot
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import CommandNotExistError
 from bot_app.management.commands.bot.chat_bot.commands.chat_commands_handler import ChatCommandsHandler
-from bot_app.management.commands.bot.utils.server.responses import Event, EventType
+from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, EventType
 
 
 class ChatBot(Bot):

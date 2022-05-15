@@ -1,7 +1,7 @@
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import CommandNotExistError
 from bot_app.management.commands.bot.chat_bot.commands.commands import ChatInvitationCommand, ChatStartCommand, CickUserCommand, InviteUserCommand
-from bot_app.management.commands.bot.utils.server.responses import Event, EventType
+from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, EventType
 from bot_app.management.commands.bot.bot_commands.commands_handler import CommandsHandler
 
 
