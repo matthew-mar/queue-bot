@@ -8,3 +8,7 @@ class ChatAlreadySavedError(Exception):
 
 class MemberNotSavedError(Exception):
     pass
+
+
+class QueueAlreadySaved(Exception):
+    pass

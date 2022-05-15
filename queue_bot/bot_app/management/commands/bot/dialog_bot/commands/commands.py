@@ -2,7 +2,7 @@ from asyncio import events
 import json
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
-from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError, QueueAlreadySaved
 from bot_app.management.commands.bot.utils.server.responses import Event, MembersResponse, UsersResponse
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 from bot_app.management.commands.bot.utils.keyboard.keyboard import make_keyboard
@@ -224,7 +224,6 @@ class QueueCreateCommand(BotCommand):
                 queue_members=json.dumps(members))
             queue.save()
         elif event.text == "нет":
-            print("we here")
             queue: Queue = Queue(
                 queue_name=self.__queue_info[event.from_id]["queue_name"],
                 queue_members="[]"
@@ -251,20 +250,19 @@ class QueueCreateCommand(BotCommand):
             проверка на существование очереди с введенными данными в бд.
             """
             # попытка получения очереди из бд
-            QueueChat.objects.filter(
-                queue_datetime=queue_datetime,
-                chat=chat,
-                queue=queue)[0]
-
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message="ошибка! такая очередь уже существует."
-            )
-        except IndexError:
-            """
-            если выбрасывается IndexError, значит такой очереди нет в бд.
-            """
-            # # сохранение связи между очередью и беседой
+            queues: list[Queue] = list(Queue.objects.filter(queue_name=queue_info["queue"].queue_name))
+            for queue in queues:
+                try:
+                    QueueChat.objects.filter(
+                        queue_datetime=queue_datetime,
+                        chat=chat,
+                        queue=queue
+                    )[0]
+                    raise QueueAlreadySaved()
+                except IndexError:
+                    continue
+            
+            # сохранение связи между очередью и беседой
             QueueChat(
                 queue_datetime=queue_datetime,
                 chat=chat,
@@ -274,9 +272,15 @@ class QueueCreateCommand(BotCommand):
                 peer_id=event.peer_id,
                 message="очередь успешно сохранена",
             )
+        except QueueAlreadySaved:
+            queue_info["queue"].delete()
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message="ошибка! такая очередь уже существует."
+            )
 
-            self.__queue_info.pop(event.from_id)
-            self.__current_step.pop(event.from_id)
+        self.__queue_info.pop(event.from_id)
+        self.__current_step.pop(event.from_id)
 
     def __get_days(self) -> list[str]:
         """ функция отправляет список доступных дней для пользователя """

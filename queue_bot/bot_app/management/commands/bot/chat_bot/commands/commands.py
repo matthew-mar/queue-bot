@@ -2,7 +2,7 @@ from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError
-from bot_app.management.commands.bot.utils.server.responses import ConversationsResponse, Event, MembersResponse, UsersResponse
+from bot_app.management.commands.bot.utils.server.responses import ConversationsResponse, Event, MembersResponse, Profile, UsersResponse
 from bot_app.management.commands.bot.utils.keyboard.keyboard import make_keyboard
 from bot_app.models import Chat, ChatMember, Member
 
@@ -94,36 +94,36 @@ class ChatStartCommand(BotCommand):
             for member in Member.objects.all()
         ]
         # список профилей участников беседы
-        profiles: list[dict] = members_response.profiles
+        profiles: list[Profile] = members_response.profiles
 
         members: list[Member] = []
 
         for member in profiles:
-            if member["id"] not in members_vk_ids:
+            if member.user_id not in members_vk_ids:
                 new_member: Member = Member(
-                    member_vk_id=member["id"],
-                    name=member["first_name"],
-                    surname=member["last_name"]
+                    member_vk_id=member.user_id,
+                    name=member.first_name,
+                    surname=member.last_name
                 )
                 new_member.save()
                 members.append(new_member)
                 print("пользователь {name} {surname} сохранен".format(
-                    name=member["first_name"],
-                    surname=member["last_name"]
+                    name=member.first_name,
+                    surname=member.last_name
                 ))
         
         return members
     
     def __chat_members_connection(self, 
         chat: Chat, 
-        profiles: list[dict],
+        profiles: list[Profile],
         conversation_response: ConversationsResponse) -> None:
         """ сохранение в бд связи между беседой и участниками беседы """
         members: list[Member] = [  # список участников беседы, сохраненных в бд
             Member.objects.filter(
-                member_vk_id=member["id"],
-                name=member["first_name"],
-                surname=member["last_name"]
+                member_vk_id=member.user_id,
+                name=member.first_name,
+                surname=member.last_name
             )[0]
             for member in profiles
         ]
