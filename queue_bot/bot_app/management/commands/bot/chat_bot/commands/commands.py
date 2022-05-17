@@ -1,10 +1,11 @@
+import json
 from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError
 from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, Event, MembersResponse, Profile, UsersResponse
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import make_keyboard
-from bot_app.models import Chat, ChatMember, Member
+from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 
 
 class ChatInvitationCommand(BotCommand):
@@ -20,6 +21,7 @@ class ChatInvitationCommand(BotCommand):
                 "и нажмите кнопку \"start\""
             ),
             keyboard=make_keyboard(
+                inline=False,
                 buttons_names=["start"]
             )
         )
@@ -162,27 +164,54 @@ class InviteUserCommand(BotCommand):
 
     def start(self, event: Event, **kwargs) -> Any:
         """ создание связи между новым пользователем и беседой """
-        try:
-            new_member: Member = Member.objects.filter(
-                member_vk_id=event.action["member_id"]
-            )[0]
-        except IndexError:
-            """ 
-            если выброшена IndexError то пользователя с таким id 
-            нет в бд. Значит пользователя нужно сохранить
-            """
-            member_response: UsersResponse = UsersResponse(self.api.users.get(event.action["member_id"]))
-            new_member: Member = Member(
-                member_vk_id=member_response.id,
-                name=member_response.first_name,
-                surname=member_response.last_name
-            ).save()
-        finally:
-            chat: Chat = Chat.objects.filter(
-                chat_vk_id=event.peer_id
-            )[0]
-            ChatMember(
-                chat=chat,
-                chat_member=new_member,
-                is_admin=False
-            ).save()
+        if not event.action_from_bot:
+            try:
+                new_member: Member = Member.objects.filter(
+                    member_vk_id=event.action["member_id"]
+                )[0]
+            except IndexError:
+                """ 
+                если выброшена IndexError то пользователя с таким id 
+                нет в бд. Значит пользователя нужно сохранить
+                """
+                member_response: UsersResponse = UsersResponse(self.api.users.get(event.action["member_id"]))
+                new_member: Member = Member(
+                    member_vk_id=member_response.id,
+                    name=member_response.first_name,
+                    surname=member_response.last_name
+                ).save()
+            finally:
+                chat: Chat = Chat.objects.filter(
+                    chat_vk_id=event.peer_id
+                )[0]
+                ChatMember(
+                    chat=chat,
+                    chat_member=new_member,
+                    is_admin=False
+                ).save()
+
+
+class QueueEnrollCommand(BotCommand):
+    """ команда записи в очередь """
+    def __init__(self) -> None:
+        super().__init__()
+    
+    def start(self, event: Event, **kwargs) -> Any:
+        print(event.text)
+        queue_id: int = int(event.text.split()[-1])
+        queue: Queue = Queue.objects.filter(id=queue_id)[0]
+        members: list[dict] = json.loads(queue.queue_members)
+        members_ids = list(map(lambda member: member["member"], members))
+        print(members_ids)
+        if event.from_id not in members_ids:
+            members.append({
+                "member": event.from_id
+            })
+            queue.queue_members = json.dumps(members)
+            queue.save()
+            print("saved")
+        print(members)
+        # queues: list[str] = list(map(
+        #         lambda queue_chat: f"записаться в {queue_chat.queue.queue_name}",
+        #         QueueChat.objects.filter(chat=Chat.objects.filter(chat_vk_id=self.chat_id)[0])
+        #     ))

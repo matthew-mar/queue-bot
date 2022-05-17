@@ -66,6 +66,7 @@ def make_keyboard(one_time: bool = False,
         
         keyboard: dict = get_keyboard()
         keyboard["one_time"] = one_time
+        keyboard["inline"] = inline
         
         buttons: list[dict] = []
         for i in range(len(buttons_names)):

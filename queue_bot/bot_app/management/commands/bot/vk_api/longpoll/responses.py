@@ -1,6 +1,9 @@
 from abc import ABC
 
 
+BOT_VK_ID: int = 206732640
+
+
 class EventType:
     """ типы событий LongPoll сервера """
 
@@ -57,6 +60,12 @@ class Event(ABC):
     def action_type(self) -> str: return None
 
     @property
+    def keyboard(self) -> bool: return None
+
+    @property
+    def action_from_bot(self) -> bool: return None
+
+    @property
     def attachments(self) -> list: return None
 
     @property
@@ -110,6 +119,15 @@ class Event(ABC):
     @property
     def group_id(self) -> int: return None
 
+    @property
+    def client_info(self) -> dict: return None
+
+    @property
+    def inline_keyboard(self) -> bool: return None
+
+    @property
+    def keyboard(self) -> bool: return None
+
 
 class MessageNew(Event):
     """ событие нового сообщения """
@@ -124,6 +142,15 @@ class MessageNew(Event):
     def action_type(self) -> str:
         if self.action != None:
             return self.action["type"]
+        
+    @property 
+    def action_from_bot(self) -> bool:
+        if self.action != None:
+            return abs(self.action["member_id"]) == BOT_VK_ID
+
+    @property
+    def keyboard(self) -> bool:
+        return self.text
     
     @property
     def attachments(self) -> list:
@@ -197,6 +224,18 @@ class MessageNew(Event):
     @property
     def group_id(self) -> int:
         return self._group_id
+
+    @property
+    def client_info(self) -> dict:
+        return self.object.get("client_info")
+
+    @property
+    def inline_keyboard(self) -> bool:
+        return self.client_info.get("inline_keyboard")
+    
+    @property
+    def keyboard(self) -> bool:
+        return self.client_info.get("keyboard")
 
 
 class EmptyEvent(Event):

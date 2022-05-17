@@ -9,7 +9,7 @@ class DialogCommandsHandler(CommandsHandler):
     """ обработчик команд в личных сообщениях """
     def __init__(self) -> None:
         super().__init__()
-        self._commands["start"] = DialogStartCommand()
+        self._commands["начать"] = DialogStartCommand()
         self._commands["создать очередь"] = QueueCreateCommand()
 
     def handle(self, event: Event) -> None:

@@ -48,6 +48,7 @@ class DialogStartCommand(BotCommand):
                     peer_id=event.peer_id,
                     message="вы можете создать очередь",
                     keyboard=make_keyboard(
+                        inline=False,
                         buttons_names=["создать очередь"]
                     )
                 )
