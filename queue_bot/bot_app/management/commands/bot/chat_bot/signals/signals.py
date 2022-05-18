@@ -1,5 +1,5 @@
 from bot_app.management.commands.bot.bot_signals.signal import Signal
-from bot_app.management.commands.bot.vk_api.keyboard.keyboard import make_keyboard
+from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from bot_app.models import Chat, Queue, QueueChat
 
 
@@ -35,13 +35,18 @@ class NewQueueSignal(Signal):
             message += (
                 "вы можете начать записываться в очередь"
             )
-            queues: list[str] = list(map(
-                lambda queue_chat: f"записаться в {queue_chat.queue.queue_name} - {queue_chat.queue.id}",
-                QueueChat.objects.filter(chat=Chat.objects.filter(chat_vk_id=self.chat_id)[0])
-            ))
+            queues: list[dict] = list(map(
+                lambda queue_chat: Button(
+                    label=f"записаться в {queue_chat.queue.queue_name}",
+                    payload={
+                        "button_type": "queue_enroll_button",
+                        "queue_id": queue_chat.queue.id
+                    }).button_json,
+                QueueChat.objects.filter(chat=Chat.objects.filter(chat_vk_id=self.chat_id)[0]
+            )))
             keyboard = make_keyboard(
                 inline=False,
-                buttons_names=queues
+                buttons=queues
             )
 
         self.api.messages.send(

@@ -20,80 +20,56 @@ def test_keyboard() -> str:
         return test_temp.read()
 
 
-def make_keyboard(one_time: bool = False,
-    inline: bool = True,
-    default_color: str = "secondary", 
-    command: str = "", **kwargs) -> str:
+class Button:
+    def __init__(self,
+        label: str,
+        color: str = "secondary",
+        payload: dict = {}) -> None:
+        """ создание кнопки """
+        self.label: str = label
+        self.color: str = color
+        self.payload: str = json.dumps(payload)
+    
+    def create_button(self) -> dict:
+        button_template: dict = get_button()
+        button_template["action"]["label"] = self.label
+        button_template["action"]["payload"] = self.payload
+        button_template["color"] = self.color
+        return button_template
+    
+    @property
+    def button_json(self) -> dict:
+        button: dict = self.create_button()
+        return button
+
+
+def make_keyboard(
+    buttons: list[Button],
+    one_time: bool = False,
+    inline: bool = True) -> str:
         """
         функция делает клавиатуру из пользовательских кнопок
-
-        входные параметры:
-        buttons_names (list[str]): список с названиями кнопок. 
-        не может быть пустым списокм!
-
-        buttons_colors (list[str]): необязательный параметр список с цветами кнопок.
-        цвет кнопки присваивается соответствующей по индексу кнопке из списка
-        buttons_names
-
-        default_color="secondary" (str): необязательный параметр "цвет по умолчанию".
-        присваивается кнопкам, для которых не указан цвет в списке button_colors.
-        по умолчанию - белый цвет.
-
-        one_time=False (bool): необязательный параметр, который отвечает за
-        количество показов кнопки. Если True, то кнопка исчезнет при нажатии.
-
-        command="" (str): дополнительный параметр, который передается в payload.
-        чтобы кнопку можно было различить по типу команды.
         """
-        buttons_names: list[str] = kwargs.get("buttons_names")
-        if isinstance(buttons_names, type(None)):
-            raise TypeError("пропущен обязательный аргумент: buttons_names")
-        elif len(buttons_names) == 0:
-            raise ValueError("список buttons_names пустой, список должен "
+        if len(buttons) == 0:
+            raise ValueError("список buttons пустой, список должен "
                 "содержать как минимум один элемент"
             )
-
-        buttons_colors: list[str] = kwargs.get("buttons_colors")
-        if isinstance(buttons_colors, type(None)):
-            buttons_colors = [default_color] * len(buttons_names)
-        elif len(buttons_colors) > len(buttons_names):
-            raise ValueError("значений в списке buttons_colors не может быть "
-                "больше, чем в списке buttons_names"
-            )
-        elif len(buttons_colors) < len(buttons_names):
-            for i in range(len(buttons_names) - len(buttons_colors)):
-                buttons_colors.append(default_color)
         
         keyboard: dict = get_keyboard()
         keyboard["one_time"] = one_time
         keyboard["inline"] = inline
-        
-        buttons: list[dict] = []
-        for i in range(len(buttons_names)):
-            button: dict = get_button()
-            button["action"]["payload"] = "{\"button\": \"%d\", \"command\": \"%s\"}" % ((i + 1), command)
-            button["action"]["label"] = buttons_names[i]
-            button["color"] = buttons_colors[i]
-            buttons.append(button)
 
         for i in range(0, len(buttons), 2):
             keyboard["buttons"].append(buttons[i:i+2])
-
         
-        return json.dumps(keyboard, indent=2)   
+        return json.dumps(keyboard)   
 
 
 if __name__ == "__main__":
-    week_days: dict[str:int] = {  # словарь соответствий дня недели с его номером
-        "понедельник": 1,
-        "вторник": 2,
-        "среда": 3,
-        "четверг": 4,
-        "пятница": 5,
-        "суббота": 6,
-        "воскресенье": 7
-    }
-    week_days_list = list(week_days.keys())
-    for i in range(0, len(week_days_list), 3):
-        print(week_days_list[i:i+3])
-        print()
+    buttons = []
+    for i in range(3):
+        button = Button(label=f"a{i}", payload={"id": i}, color="primary")
+        buttons.append(button.button_json)
+    pprint(buttons)
+    print()
+    pprint(make_keyboard(buttons=buttons))

@@ -6,7 +6,7 @@ from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError, QueueAlreadySaved
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, MembersResponse, UsersResponse
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
-from bot_app.management.commands.bot.vk_api.keyboard.keyboard import make_keyboard
+from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from bot_app.management.commands.bot.vk_api.vk_api import Session
 from datetime import datetime
 
@@ -49,7 +49,11 @@ class DialogStartCommand(BotCommand):
                     message="вы можете создать очередь",
                     keyboard=make_keyboard(
                         inline=False,
-                        buttons_names=["создать очередь"]
+                        buttons=[Button(
+                                label="создать очередь", 
+                                color="primary"
+                            ).button_json
+                        ]
                     )
                 )
             else:
@@ -85,8 +89,8 @@ class QueueCreateCommand(BotCommand):
     def choose_chat(self, event: Event) -> None:
         """ отправка сообщения о выборе беседы """
         if is_owner(event):
-            chats: list[str] = [  # список чатов, в которых пользователь админ
-                chat_member.chat.chat_name
+            chats: list[dict] = [  # список чатов, в которых пользователь админ
+                Button(label=chat_member.chat.chat_name).button_json
                 for chat_member in ChatMember.objects.filter(
                     chat_member=Member.objects.filter(member_vk_id=event.from_id)[0],
                     is_admin=True
@@ -95,10 +99,7 @@ class QueueCreateCommand(BotCommand):
             self.api.messages.send(
                 peer_id=event.peer_id,
                 message="выберите беседу, в которой будет очередь",
-                keyboard=make_keyboard(
-                    default_color="primary",
-                    buttons_names=chats
-                )
+                keyboard=make_keyboard(buttons=chats)
             )
         else:
             self.api.messages.send(
@@ -137,14 +138,16 @@ class QueueCreateCommand(BotCommand):
         queue_name: str = event.text.lower()
         self.__queue_info[event.from_id]["queue_name"] = queue_name
 
+        days_buttons: list[dict] = list(map(
+            lambda day: Button(label=day).button_json,
+            self.__get_days()
+        ))
+
         # переход к следующему шагу
         self.api.messages.send(
             peer_id=event.peer_id,
             message="введите день недели, когда начнет работать очередь",
-            keyboard=make_keyboard(
-                default_color="primary",
-                buttons_names=self.__get_days()
-            )
+            keyboard=make_keyboard(buttons=days_buttons)
         )
         self.__current_step[event.from_id] = self.save_day
     
@@ -175,13 +178,15 @@ class QueueCreateCommand(BotCommand):
             если была выброшена KeyError, то пользователь не ввел название дня
             недели.
             """
+            days_buttons: list[dict] = list(map(
+                lambda day: Button(label=day).button_json,
+                self.__get_days()
+            ))
+
             self.api.messages.send(
                 peer_id=event.peer_id,
                 message="ошибка! введите правильно день недели",
-                keyboard=make_keyboard(
-                    default_color="primary",
-                    buttons_names=self.__get_days()
-                )
+                keyboard=make_keyboard(buttons=days_buttons)
             )
 
     def save_time(self, event: Event) -> None:
@@ -199,9 +204,10 @@ class QueueCreateCommand(BotCommand):
                     "Да - участники беседы добавятся автоматически по порядку\n"
                     "Нет - участники беседы будут сами записываться в произвольном порядке"
                 ),
-                keyboard=make_keyboard(
-                    buttons_names=["да", "нет"]
-                )
+                keyboard=make_keyboard(buttons=[
+                    Button(label="да").button_json,
+                    Button(label="нет").button_json
+                ])
             )
             self.__current_step[event.from_id] = self.save_users
         except ValueError:

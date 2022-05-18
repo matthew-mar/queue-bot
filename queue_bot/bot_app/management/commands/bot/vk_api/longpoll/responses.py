@@ -1,4 +1,5 @@
 from abc import ABC
+import json
 
 
 BOT_VK_ID: int = 206732640
@@ -128,6 +129,15 @@ class Event(ABC):
     @property
     def keyboard(self) -> bool: return None
 
+    @property
+    def message(self) -> dict: return None
+
+    @property
+    def payload(self) -> dict: return None
+
+    @property
+    def button_type(self) -> str: return None
+
 
 class MessageNew(Event):
     """ событие нового сообщения """
@@ -135,8 +145,12 @@ class MessageNew(Event):
         super().__init__(obj)
 
     @property
+    def message(self) -> dict:
+        return self._object["message"]
+
+    @property
     def action(self) -> dict:
-        return self.object["message"].get("action")
+        return self.message.get("action")
 
     @property
     def action_type(self) -> str:
@@ -154,51 +168,63 @@ class MessageNew(Event):
     
     @property
     def attachments(self) -> list:
-        return self._object["message"]["attachments"]
+        return self.message.get(["attachments"])
     
     @property
     def conversation_message_id(self) -> int:
-        return self._object["message"]["conversation_message_id"]
+        return self.message["conversation_message_id"]
 
     @property
     def date(self) -> int:
-        return self._object["message"]["date"]
+        return self.message["date"]
 
     @property
     def from_id(self) -> int:
-        return self._object["message"]["from_id"]
+        return self.message["from_id"]
 
     @property
     def fwd_messages(self) -> list:
-        return self._object["message"]["fwd_messages"]
+        return self.message["fwd_messages"]
 
     @property
     def id(self) -> int:
-        return self._object["message"]["id"]
+        return self.message["id"]
 
     @property
     def important(self) -> bool:
-        return self._object["message"]["important"]
+        return self.message["important"]
     
     @property
     def is_hidden(self) -> bool:
-        return self._object["message"]["is_hidden"]
+        return self.message["is_hidden"]
 
     @property
     def out(self) -> int:
-        return self._object["message"]["out"]
+        return self.message["out"]
 
     @property
     def peer_id(self) -> int:
-        return self._object["message"]["peer_id"]
+        return self.message["peer_id"]
 
     @property
     def random_id(self) -> int:
-        return self._object["message"]["random_id"]
+        return self.message["random_id"]
 
     @property
     def text(self) -> str:
-        return self._object["message"]["text"]
+        return self.message["text"]
+    
+    @property
+    def payload(self) -> dict:
+        payload_str: str = self.message.get("payload")
+        if payload_str != None:
+            payload: dict = json.loads(payload_str)
+            return payload
+    
+    @property
+    def button_type(self) -> str:
+        if self.payload != None:
+            return self.payload["button_type"]
 
     @property
     def from_me(self) -> bool:
@@ -235,7 +261,7 @@ class MessageNew(Event):
     
     @property
     def keyboard(self) -> bool:
-        return self.client_info.get("keyboard")
+        return self.client_info.get("keyboard")    
 
 
 class EmptyEvent(Event):

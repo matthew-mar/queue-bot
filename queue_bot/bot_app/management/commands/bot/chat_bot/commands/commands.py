@@ -4,7 +4,7 @@ from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError
 from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, Event, MembersResponse, Profile, UsersResponse
-from bot_app.management.commands.bot.vk_api.keyboard.keyboard import make_keyboard
+from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 
 
@@ -22,7 +22,7 @@ class ChatInvitationCommand(BotCommand):
             ),
             keyboard=make_keyboard(
                 inline=False,
-                buttons_names=["start"]
+                buttons=[Button(label="start").button_json]
             )
         )
 
@@ -197,21 +197,13 @@ class QueueEnrollCommand(BotCommand):
         super().__init__()
     
     def start(self, event: Event, **kwargs) -> Any:
-        print(event.text)
-        queue_id: int = int(event.text.split()[-1])
-        queue: Queue = Queue.objects.filter(id=queue_id)[0]
-        members: list[dict] = json.loads(queue.queue_members)
-        members_ids = list(map(lambda member: member["member"], members))
-        print(members_ids)
-        if event.from_id not in members_ids:
-            members.append({
-                "member": event.from_id
-            })
-            queue.queue_members = json.dumps(members)
-            queue.save()
-            print("saved")
-        print(members)
-        # queues: list[str] = list(map(
-        #         lambda queue_chat: f"записаться в {queue_chat.queue.queue_name}",
-        #         QueueChat.objects.filter(chat=Chat.objects.filter(chat_vk_id=self.chat_id)[0])
-        #     ))
+        if event.button_type == "queue_enroll_button":
+            queue: Queue = Queue.objects.filter(id=event.payload["queue_id"])[0]
+            members: list[dict] = json.loads(queue.queue_members)
+            members_ids = list(map(lambda member: member["member"], members))
+            if event.from_id not in members_ids:
+                members.append({
+                    "member": event.from_id
+                })
+                queue.queue_members = json.dumps(members)
+                queue.save()
