@@ -1,5 +1,8 @@
+import json
 from bot_app.management.commands.bot.bot_signals.signal import Signal
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
+from bot_app.management.commands.bot.vk_api.longpoll.responses import UsersResponse
+from bot_app.management.commands.bot.vk_api.vk_api import Users
 from bot_app.models import Chat, Queue, QueueChat
 
 
@@ -25,10 +28,27 @@ class NewQueueSignal(Signal):
             )
         )
         if self.members_saved:
+            queue_members: list[dict] = json.loads(queue.queue_members)
+            members_ids: list[int] = list(map(
+                lambda queue_member: queue_member["member"],
+                queue_members
+            ))
+            users: list[UsersResponse] = list(map(
+                lambda user_id: UsersResponse(self.api.users.get(user_id)),
+                members_ids
+            ))
+            users_message = "\n".join(
+                    list(map(
+                        lambda user: "{0}. {1} {2}".format(users.index(user) + 1, user.first_name, user.last_name),
+                        users
+                    ))
+                )
             message += (
                 "все пользователи добавлены в очередь\n"
                 "во время начала очереди вам будут приходить уведомления о "
-                "вашей позиции в очереди"
+                "вашей позиции в очеред\n"
+                "текущий порядок очереди:\n\n"
+                f"{users_message}"
             )
             keyboard = ""
         else:

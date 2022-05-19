@@ -1,4 +1,3 @@
-from asyncio import events
 import json
 from pprint import pprint
 from typing import Any
@@ -44,44 +43,18 @@ class DialogStartCommand(BotCommand):
         обычный пользователь или владелец беседы
         """
         super().start(event)
-        try:
-            if is_owner(event):
-                self.api.messages.send(
-                    peer_id=event.peer_id,
-                    message="вы можете создать очередь",
-                    keyboard=make_keyboard(
-                        inline=False,
-                        buttons=[Button(
-                                label="создать очередь", 
-                                color="primary"
-                            ).button_json,
-                            Button(
-                                label="записаться в очередь",
-                                color="primary"
-                            ).button_json
-                        ]
-                    )
-                )
-            else:
-                self.api.messages.send(
-                    peer_id=event.peer_id,
-                    message="вы можете:",
-                    keyboard=make_keyboard(
-                        inline=False,
-                        buttons=[
-                            Button(label="записаться в очередь").button_json,
-                            Button(label="удалиться из очереди").button_json
-                        ]
-                    )
-                )
-        except MemberNotSavedError:
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message=(
-                    "чтобы пользоваться функциями бота нужно быть владельцем "
-                    "или участником беседы, куда добавлен бот"
-                )
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message="функции бота",
+            keyboard=make_keyboard(
+                inline=False,
+                buttons=[
+                    Button(label="создать очередь").button_json,
+                    Button(label="записаться в очередь").button_json,
+                    Button(label="удалиться из очереди").button_json
+                ]
             )
+        )
         self.command_ended = True
 
 
@@ -96,10 +69,28 @@ class QueueCreateCommand(BotCommand):
 
     def start(self, event: Event, **kwargs) -> Any:
         super().start(event)
-        if event.from_id not in self.__current_step:
-            self.__current_step[event.from_id] = self.choose_chat
-        current_step_method = self.__current_step[event.from_id]
-        current_step_method(event)
+        try:
+            if is_owner(event):
+                if event.from_id not in self.__current_step:
+                    self.__current_step[event.from_id] = self.choose_chat
+                current_step_method = self.__current_step[event.from_id]
+                current_step_method(event)
+            else:
+                self.api.messages.send(
+                    peer_id=event.peer_id,
+                    message=(
+                        "чтобы создавать очереди нужно быть владельцем беседы, где есть бот"
+                    )
+                )
+                self.command_ended = True
+        except:
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=(
+                    "чтобы пользоваться функциями бота нужно состоять в одной беседе с ботом"
+                )
+            )
+            self.command_ended = True
 
     def choose_chat(self, event: Event) -> None:
         """ отправка сообщения о выборе беседы """
@@ -422,7 +413,8 @@ class QueueEnrollCommand(BotCommand):
                 peer_id=event.peer_id,
                 message="выберите очередь, в которую хотите записаться",
                 keyboard=make_keyboard(
-                    buttons=buttons
+                    inline=False,
+                    buttons=buttons[:40]
                 )
             )
             self.__current_step[event.from_id] = self.get_queue
@@ -437,21 +429,118 @@ class QueueEnrollCommand(BotCommand):
                 members.append({
                     "member": event.from_id
                 })
+                members_ids.append(event.from_id)
                 queue.queue_members = json.dumps(members)
                 queue.save()
                 self.api.messages.send(
                     peer_id=event.peer_id,
                     message=(
-                        "вы записались в очередь {0} из беседы {1}"
+                        "вы записались в очередь {0} из беседы {1}\n"
+                        "ваш текущий номер - {2}"
                         .format(queue.queue_name, QueueChat.objects.filter(
-                            queue=Queue.objects.filter(id=queue.id)[0])[0].chat
+                            queue=Queue.objects.filter(id=queue.id)[0])[0].chat,
+                            members_ids.index(event.from_id)+1
                         )
+                    ),
+                    keyboard=make_keyboard(
+                        inline=False,
+                        buttons=[
+                            Button(label="создать очередь").button_json,
+                            Button(label="записаться в очередь").button_json,
+                            Button(label="удалиться из очереди").button_json
+                        ]
                     )
                 )
             else:
                 self.api.messages.send(
                     peer_id=event.peer_id,
-                    message="вы уже находитесь в этой очереди"
+                    message=(
+                        "вы уже находитесь в этой очереди\n"
+                        "ваш текущий порядковый номер - {0}".format(members_ids.index(event.from_id)+1)
+                    ),
+                    keyboard=make_keyboard(
+                        inline=False,
+                        buttons=[
+                            Button(label="создать очередь").button_json,
+                            Button(label="записаться в очередь").button_json,
+                            Button(label="удалиться из очереди").button_json
+                        ]
+                    )
                 )
             self.__current_step.pop(event.from_id)
             self.command_ended = True
+
+
+class QueueQuitCommand(BotCommand):
+    """ команда удаления из очереди """
+    def __init__(self) -> None:
+        super().__init__()
+        self.__current_step: dict = {}
+    
+    def start(self, event: Event, **kwargs) -> Any:
+        super().start(event)
+        if event.from_id not in self.__current_step:
+            self.__current_step[event.from_id] = self.send_queues
+        current_step_method = self.__current_step[event.from_id]
+        current_step_method(event)
+        
+    def send_queues(self, event: Event) -> None:
+        queues: list[Queue] = []
+        for queue in Queue.objects.all():
+            members_ids = []
+            queue_members = json.loads(queue.queue_members)
+            if len(queue_members) > 0:
+                print(queue_members)
+                members_ids = list(map(lambda member: member["member"], queue_members))
+            if event.from_id in members_ids:
+                queues.append(queue)
+        buttons = list(map(
+            lambda queue: Button(
+                label=queue.queue_name,
+                payload={
+                    "button_type": "queue_delete_button",
+                    "queue_id": queue.id
+                }
+            ).button_json,
+            queues
+        ))
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message="выберите очередь из которой хотите удалиться",
+            keyboard=make_keyboard(
+                inline=False,
+                buttons=buttons
+            )
+        )
+        self.__current_step[event.from_id] = self.delete_member
+    
+    def delete_member(self, event: Event) -> None:
+        if event.button_type == "queue_delete_button":
+            queue: Queue = Queue.objects.filter(id=event.payload["queue_id"])[0]
+            queue_members: list = json.loads(queue.queue_members)
+            for member in queue_members:
+                if member["member"] == event.from_id:
+                    queue_members.remove(member)
+            queue.queue_members = json.dumps(queue_members)
+            queue.save()
+        
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message=(
+                "вы удалились из очереди {0} в беседе {1}"
+                .format(queue.queue_name, QueueChat.objects.filter(
+                    queue=Queue.objects.filter(id=queue.id)[0])[0].chat
+                )
+            ),
+            keyboard=make_keyboard(
+                inline=False,
+                buttons=[
+                    Button(label="создать очередь").button_json,
+                    Button(label="записаться в очередь").button_json,
+                    Button(label="удалиться из очереди").button_json
+                ]
+            )
+        )
+    
+        self.__current_step.pop(event.from_id)
+        self.command_ended = True
