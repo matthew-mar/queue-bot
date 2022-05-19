@@ -51,7 +51,8 @@ class DialogStartCommand(BotCommand):
                 buttons=[
                     Button(label="создать очередь").button_json,
                     Button(label="записаться в очередь").button_json,
-                    Button(label="удалиться из очереди").button_json
+                    Button(label="удалиться из очереди").button_json,
+                    Button(label="получить место в очереди").button_json
                 ]
             )
         )
@@ -447,7 +448,8 @@ class QueueEnrollCommand(BotCommand):
                         buttons=[
                             Button(label="создать очередь").button_json,
                             Button(label="записаться в очередь").button_json,
-                            Button(label="удалиться из очереди").button_json
+                            Button(label="удалиться из очереди").button_json,
+                            Button(label="получить место в очереди").button_json
                         ]
                     )
                 )
@@ -463,7 +465,8 @@ class QueueEnrollCommand(BotCommand):
                         buttons=[
                             Button(label="создать очередь").button_json,
                             Button(label="записаться в очередь").button_json,
-                            Button(label="удалиться из очереди").button_json
+                            Button(label="удалиться из очереди").button_json,
+                            Button(label="получить место в очереди").button_json
                         ]
                     )
                 )
@@ -490,7 +493,6 @@ class QueueQuitCommand(BotCommand):
             members_ids = []
             queue_members = json.loads(queue.queue_members)
             if len(queue_members) > 0:
-                print(queue_members)
                 members_ids = list(map(lambda member: member["member"], queue_members))
             if event.from_id in members_ids:
                 queues.append(queue)
@@ -537,10 +539,92 @@ class QueueQuitCommand(BotCommand):
                 buttons=[
                     Button(label="создать очередь").button_json,
                     Button(label="записаться в очередь").button_json,
-                    Button(label="удалиться из очереди").button_json
+                    Button(label="удалиться из очереди").button_json,
+                    Button(label="получить место в очереди").button_json
                 ]
             )
         )
     
         self.__current_step.pop(event.from_id)
         self.command_ended = True
+
+
+class GetQueuePlaceCommand(BotCommand):
+    """ команда получения места в очереди """
+    def __init__(self) -> None:
+        super().__init__()
+        self.__current_step: dict = {}
+    
+    def start(self, event: Event, **kwargs) -> Any:
+        super().start(event)
+        if event.from_id not in self.__current_step:
+            self.__current_step[event.from_id] = self.send_queues
+        current_step_method = self.__current_step[event.from_id]
+        current_step_method(event)
+
+    def send_queues(self, event: Event) -> None:
+        queues: list[Queue] = []
+        for queue in Queue.objects.all():
+            members_ids = []
+            queue_members = json.loads(queue.queue_members)
+            if len(queue_members) > 0:
+                members_ids = list(map(lambda member: member["member"], queue_members))
+            if event.from_id in members_ids:
+                queues.append(queue)
+        buttons = list(map(
+            lambda queue: Button(
+                label=queue.queue_name,
+                payload={
+                    "button_type": "queue_order_button",
+                    "queue_id": queue.id
+                }
+            ).button_json,
+            queues
+        ))
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message="выберите очередь",
+            keyboard=make_keyboard(
+                inline=False,
+                buttons=buttons
+            )
+        )
+        self.__current_step[event.from_id] = self.send_place
+
+    def send_place(self, event: Event) -> None:
+        if event.button_type == "queue_order_button":
+            queue: Queue = Queue.objects.filter(id=event.payload["queue_id"])[0]
+            members: list[dict] = json.loads(queue.queue_members)
+            members_ids = list(map(lambda member: member["member"], members))
+            users: list[str] = list(map(
+                lambda member_id: "{index}. {name} {surname}".format(
+                    index=members_ids.index(member_id) + 1,
+                    name=UsersResponse(self.api.users.get(member_id)).first_name,
+                    surname=UsersResponse(self.api.users.get(member_id)).last_name
+                ),
+                members_ids
+            ))
+
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=(
+                    "ваш номер в очереди - {0}".format(members_ids.index(event.from_id) + 1)
+                )
+            )
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=(
+                    "\n".join(users)
+                ),
+                keyboard=make_keyboard(
+                    inline=False,
+                    buttons=[
+                        Button(label="создать очередь").button_json,
+                        Button(label="записаться в очередь").button_json,
+                        Button(label="удалиться из очереди").button_json,
+                        Button(label="получить место в очереди").button_json
+                    ]
+                )
+            )
+            self.__current_step.pop(event.from_id)
+            self.command_ended = True

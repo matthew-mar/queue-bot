@@ -1,7 +1,7 @@
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import CommandNotExistError
 from bot_app.management.commands.bot.bot_commands.commands_handler import CommandsHandler
-from bot_app.management.commands.bot.dialog_bot.commands.commands import DialogStartCommand, QueueCreateCommand, QueueEnrollCommand, QueueQuitCommand
+from bot_app.management.commands.bot.dialog_bot.commands.commands import DialogStartCommand, GetQueuePlaceCommand, QueueCreateCommand, QueueEnrollCommand, QueueQuitCommand
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event
 
 
@@ -13,6 +13,7 @@ class DialogCommandsHandler(CommandsHandler):
         self._commands["создать очередь"] = QueueCreateCommand()
         self._commands["записаться в очередь"] = QueueEnrollCommand()
         self._commands["удалиться из очереди"] = QueueQuitCommand()
+        self._commands["получить место в очереди"] = GetQueuePlaceCommand()
 
         self.multi_stage_commands: list[str] = ["создать очередь", ""]
 
