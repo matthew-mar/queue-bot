@@ -15,6 +15,7 @@ class BotCommand(ABC):
         для получения доступа к методам vk api
         """
         self.api: VkApiMethods = Session().api
+        self.command_ended: bool = False
     
     def start(self, event: Event, **kwargs) -> Any:
         """
@@ -23,4 +24,4 @@ class BotCommand(ABC):
         входные параметры:
         event: событие с VkLongPoll сервера
         """
-        pass
+        self.command_ended = False
