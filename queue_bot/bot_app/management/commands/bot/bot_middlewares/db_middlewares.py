@@ -1,5 +1,5 @@
 import json
-from bot_app.management.commands.bot.bot_middlewares.middlewares import get_datetime
+# from bot_app.management.commands.bot.bot_middlewares.middlewares import get_datetime
 from bot_app.models import Member, Chat, Queue, QueueChat, ChatMember
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError, ChatDoesNotExistError, QueueAlreadySaved, QueueDoesNotExistError
 from datetime import datetime
@@ -133,7 +133,7 @@ def all_queues_in_chat(chat: Chat) -> list[Queue]:
     ))
 
 
-def all_queues_with_member(user_id: int) -> list[Queue]:
+def all_queues_in_member_chat(user_id: int) -> list[Queue]:
     """
     возвращает список всех очередей с определенным пользователем
 
@@ -166,6 +166,22 @@ def queue_add_member(queue: Queue, user_id: int) -> None:
     """
     queue_members: list[dict] = json.loads(queue.queue_members)
     queue_members.append({"member": user_id})
+    queue.queue_members = json.dumps(queue_members)
+    queue.save()
+
+
+def queue_delete_member(queue: Queue, user_id: int) -> None:
+    """
+    удаление участника из очереди
+
+    :queue (Queue) - объект очереди
+    :user_id (int) - vk_id пользователя
+    """
+    queue_members: list[dict] = json.loads(queue.queue_members)
+    for member in queue_members:
+        if member["member"] == user_id:
+            queue_members.remove(member)
+            break
     queue.queue_members = json.dumps(queue_members)
     queue.save()
 

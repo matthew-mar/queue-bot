@@ -1,6 +1,7 @@
 from datetime import datetime
-from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import get_chat_members
-from bot_app.management.commands.bot.vk_api.longpoll.responses import MembersResponse
+from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_queues_in_chat, all_queues_in_member_chat
+from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import get_chat_members, get_user
+from bot_app.management.commands.bot.vk_api.longpoll.responses import MembersResponse, UserResponse
 from bot_app.models import Member, ChatMember, Queue
 import json
 
@@ -102,6 +103,10 @@ def no_queues(queues: list[Queue]) -> bool:
     return sum(map(lambda queues_list: len(queues_list), queues)) == 0
 
 
+def queues_empty(queues: list[Queue]) -> bool:
+    return len(queues) == 0
+
+
 def get_members_ids(queue_members: dict) -> list[int]:
     """
     вовзвращает список vk_id пользователей, находящихся в очереди
@@ -132,3 +137,31 @@ def get_member_order(queue: Queue, user_id: int) -> int:
     """
     members_ids: list[int] = get_members_ids(queue_members=queue.queue_members)
     return members_ids.index(user_id) + 1
+
+
+def get_queues_with_member(user_id: int) -> list[Queue]:
+    """
+    возвращает только те очереди, где находится пользователь
+    
+    :user_id (int) - vk_id пользователя
+    """
+    queues = []
+    queues_in_chats: list[Queue] = all_queues_in_member_chat(user_id)
+    for queue_list in queues_in_chats:
+        for queue in queue_list:
+            if user_id in get_members_ids(queue_members=queue.queue_members):
+                queues.append(queue)
+    return queues
+
+
+def get_queue_order(queue_members) -> str:
+    member_ids = get_members_ids(queue_members)
+    users: list[str] = list(map(
+        lambda member_id: "{index}. {name} {surname}".format(
+            index=member_ids.index(member_id) + 1,
+            name=get_user(member_id).first_name,
+            surname=get_user(member_id).last_name
+        ),
+        member_ids
+    ))
+    return "\n".join(users)

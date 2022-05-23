@@ -3,15 +3,15 @@ from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError
-from bot_app.management.commands.bot.dialog_bot.messages import QueueCreateMessages, QueueEnrollMessages
+from bot_app.management.commands.bot.dialog_bot.messages import GetQueuePlaceMessages, QueueCreateMessages, QueueEnrollMessages, QueueQuitMessages
 from bot_app.management.commands.bot.bot_middlewares.bot_api_middlewares import send_signal
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, UserResponse
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from datetime import datetime
-from bot_app.management.commands.bot.bot_middlewares.keyboard_middlewares import chat_buttons, dialog_standart_buttons, days_buttons, queues_buttons, yes_no_buttons
-from bot_app.management.commands.bot.bot_middlewares.middlewares import get_datetime, get_member_order, get_members, get_queue_day, get_start_time, get_time, members_saved, no_queues, member_in_queue
-from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_member_chats, all_owner_chat_members, all_queues_with_member, get_chat, get_chat_by_queue, get_queue_by_id, queue_add_member, queue_saved, is_owner
+from bot_app.management.commands.bot.bot_middlewares.keyboard_middlewares import chat_buttons, dialog_standart_buttons, days_buttons, queues_buttons, queues_delete_buttons, queues_order_buttons, yes_no_buttons
+from bot_app.management.commands.bot.bot_middlewares.middlewares import get_datetime, get_member_order, get_members, get_queue_day, get_queue_order, get_queues_with_member, get_start_time, get_time, members_saved, no_queues, member_in_queue, queues_empty
+from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_member_chats, all_owner_chat_members, all_queues_in_member_chat, get_chat, get_chat_by_queue, get_queue_by_id, queue_add_member, queue_delete_member, queue_saved, is_owner
 
 
 class DialogStartCommand(BotCommand):
@@ -271,7 +271,7 @@ class QueueEnrollCommand(BotCommand):
 
     def send_queues(self, event: Event) -> None:
         """ отправка очередей, в которые может добавиться пользователь """
-        queues: list[list[Queue]] = all_queues_with_member(user_id=event.from_id)
+        queues: list[list[Queue]] = all_queues_in_member_chat(user_id=event.from_id)
         if no_queues(queues):
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -312,160 +312,127 @@ class QueueEnrollCommand(BotCommand):
                     buttons=dialog_standart_buttons
                 )
             )
-        self.end(event)
+            self.end(event)
+        else:
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=QueueEnrollMessages.QUEUE_ENROLL_ERROR_MESSAGE
+            )
+            self.send_queues(event)
 
 
 class QueueQuitCommand(BotCommand):
     """ команда удаления из очереди """
     def __init__(self) -> None:
         super().__init__()
-        self.__current_step: dict = {}
     
     def start(self, event: Event, **kwargs) -> Any:
         super().start(event)
-        if event.from_id not in self.__current_step:
-            self.__current_step[event.from_id] = self.send_queues
-        current_step_method = self.__current_step[event.from_id]
-        current_step_method(event)
+
+    def start_action(self, event: Event) -> None:
+        self.go_next(
+            event=event,
+            next_method=self.send_queues,
+            next_step=self.delete_member
+        )
         
     def send_queues(self, event: Event) -> None:
-        queues: list[Queue] = []
-        for queue in Queue.objects.all():
-            members_ids = []
-            queue_members = json.loads(queue.queue_members)
-            if len(queue_members) > 0:
-                members_ids = list(map(lambda member: member["member"], queue_members))
-            if event.from_id in members_ids:
-                queues.append(queue)
-        buttons = list(map(
-            lambda queue: Button(
-                label=queue.queue_name,
-                payload={
-                    "button_type": "queue_delete_button",
-                    "queue_id": queue.id
-                }
-            ).button_json,
-            queues
-        ))
-        self.api.messages.send(
-            peer_id=event.peer_id,
-            message="выберите очередь из которой хотите удалиться",
-            keyboard=make_keyboard(
-                inline=False,
-                buttons=buttons
+        queues: list[Queue] = get_queues_with_member(user_id=event.from_id)
+        if queues_empty(queues):
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=QueueQuitMessages.NOT_IN_ANY_QUEUE_MESSAGE,
+                keyboard=make_keyboard(
+                    inline=False,
+                    buttons=dialog_standart_buttons
+                )
             )
-        )
-        self.__current_step[event.from_id] = self.delete_member
+            self.end(event)
+        else:
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=QueueQuitMessages.CHOOSE_QUEUE_MESSAGE,
+                keyboard=make_keyboard(buttons=queues_delete_buttons(queues))
+            )
     
     def delete_member(self, event: Event) -> None:
         if event.button_type == "queue_delete_button":
-            queue: Queue = Queue.objects.filter(id=event.payload["queue_id"])[0]
-            queue_members: list = json.loads(queue.queue_members)
-            for member in queue_members:
-                if member["member"] == event.from_id:
-                    queue_members.remove(member)
-            queue.queue_members = json.dumps(queue_members)
-            queue.save()
+            queue: Queue = get_queue_by_id(queue_id=event.payload["queue_id"])
+            queue_delete_member(queue=queue, user_id=event.from_id)
         
-        self.api.messages.send(
-            peer_id=event.peer_id,
-            message=(
-                "вы удалились из очереди {0} в беседе {1}"
-                .format(queue.queue_name, QueueChat.objects.filter(
-                    queue=Queue.objects.filter(id=queue.id)[0])[0].chat
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=(
+                    QueueQuitMessages.ON_QUIT_MESSAGE
+                    .format(queue.queue_name, get_chat_by_queue(queue))
+                ),
+                keyboard=make_keyboard(
+                    inline=False,
+                    buttons=dialog_standart_buttons
                 )
-            ),
-            keyboard=make_keyboard(
-                inline=False,
-                buttons=[
-                    Button(label="создать очередь").button_json,
-                    Button(label="записаться в очередь").button_json,
-                    Button(label="удалиться из очереди").button_json,
-                    Button(label="получить место в очереди").button_json
-                ]
             )
-        )
-    
-        self.__current_step.pop(event.from_id)
-        self.command_ended = True
+
+            self.end(event)
+        else:
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=QueueQuitMessages.QUEUE_ERROR_MESSAGE
+            )
+            self.send_queues(event)
 
 
 class GetQueuePlaceCommand(BotCommand):
     """ команда получения места в очереди """
     def __init__(self) -> None:
         super().__init__()
-        self.__current_step: dict = {}
     
     def start(self, event: Event, **kwargs) -> Any:
         super().start(event)
-        if event.from_id not in self.__current_step:
-            self.__current_step[event.from_id] = self.send_queues
-        current_step_method = self.__current_step[event.from_id]
-        current_step_method(event)
+
+    def start_action(self, event: Event) -> None:
+        self.go_next(
+            event=event,
+            next_method=self.send_queues,
+            next_step=self.send_place
+        )
 
     def send_queues(self, event: Event) -> None:
-        queues: list[Queue] = []
-        for queue in Queue.objects.all():
-            members_ids = []
-            queue_members = json.loads(queue.queue_members)
-            if len(queue_members) > 0:
-                members_ids = list(map(lambda member: member["member"], queue_members))
-            if event.from_id in members_ids:
-                queues.append(queue)
-        buttons = list(map(
-            lambda queue: Button(
-                label=queue.queue_name,
-                payload={
-                    "button_type": "queue_order_button",
-                    "queue_id": queue.id
-                }
-            ).button_json,
-            queues
-        ))
-        self.api.messages.send(
-            peer_id=event.peer_id,
-            message="выберите очередь",
-            keyboard=make_keyboard(
-                inline=False,
-                buttons=buttons
+        queues: list[Queue] = get_queues_with_member(user_id=event.from_id)
+        if queues_empty(queues):
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=QueueQuitMessages.NOT_IN_ANY_QUEUE_MESSAGE,
+                keyboard=make_keyboard(
+                    inline=False,
+                    buttons=dialog_standart_buttons
+                )
             )
-        )
-        self.__current_step[event.from_id] = self.send_place
+            self.end(event)
+        else:
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=GetQueuePlaceMessages.CHOOSE_QUEUE_MESSAGE,
+                keyboard=make_keyboard(
+                    inline=True,
+                    buttons=queues_order_buttons(queues)
+                )
+            )            
 
     def send_place(self, event: Event) -> None:
         if event.button_type == "queue_order_button":
-            queue: Queue = Queue.objects.filter(id=event.payload["queue_id"])[0]
-            members: list[dict] = json.loads(queue.queue_members)
-            members_ids = list(map(lambda member: member["member"], members))
-            users: list[str] = list(map(
-                lambda member_id: "{index}. {name} {surname}".format(
-                    index=members_ids.index(member_id) + 1,
-                    name=UserResponse(self.api.users.get(member_id)).first_name,
-                    surname=UserResponse(self.api.users.get(member_id)).last_name
-                ),
-                members_ids
-            ))
+            queue: Queue = get_queue_by_id(queue_id=event.payload["queue_id"])
 
             self.api.messages.send(
                 peer_id=event.peer_id,
                 message=(
-                    "ваш номер в очереди - {0}".format(members_ids.index(event.from_id) + 1)
-                )
-            )
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message=(
-                    "\n".join(users)
+                    GetQueuePlaceMessages.QUEUE_ORDER_MESSAGE.format(
+                        get_member_order(queue=queue, user_id=event.from_id),
+                        get_queue_order(queue.queue_members)
+                    )
                 ),
                 keyboard=make_keyboard(
                     inline=False,
-                    buttons=[
-                        Button(label="создать очередь").button_json,
-                        Button(label="записаться в очередь").button_json,
-                        Button(label="удалиться из очереди").button_json,
-                        Button(label="получить место в очереди").button_json
-                    ]
+                    buttons=dialog_standart_buttons
                 )
             )
-            self.__current_step.pop(event.from_id)
-            self.command_ended = True
+            self.end(event)

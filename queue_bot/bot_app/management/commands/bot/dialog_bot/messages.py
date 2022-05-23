@@ -57,3 +57,21 @@ class QueueEnrollMessages:
         "вы записались в очередь {0} из беседы {1}\n"
         "ваш текущий номер - {2}"
     )
+
+    QUEUE_ENROLL_ERROR_MESSAGE = "ошибка! выберите очередь из представленного списка"
+
+
+class QueueQuitMessages:
+    NOT_IN_ANY_QUEUE_MESSAGE = "вы не состоите ни в одной очереди"
+
+    CHOOSE_QUEUE_MESSAGE = "выберите очередь, из которой хотите удалиться"
+
+    ON_QUIT_MESSAGE = "вы удалились из очереди {0} в беседе {1}"
+
+    QUEUE_ERROR_MESSAGE = "ошибка! выберите очередь из предложенного списка"
+
+
+class GetQueuePlaceMessages:
+    CHOOSE_QUEUE_MESSAGE = "выберите очередь"
+
+    QUEUE_ORDER_MESSAGE = "ваш номер в очереди - {0}\n{1}"

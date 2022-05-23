@@ -76,3 +76,35 @@ def queues_buttons(queues: list[list[Queue]]) -> list[Button]:
             queue_list
         )))
     return buttons
+
+
+def queues_delete_buttons(queues: list[Queue]) -> list[Button]:
+    """
+    функция делает кнопки с названием бесед
+
+    :queues - двумерный список с очередями
+    """
+    print(queues)
+    return list(map(
+        lambda queue: Button(label=queue.queue_name, payload={
+            "button_type": "queue_delete_button",
+            "queue_id": queue.id
+        }).button_json,
+        queues
+    ))
+
+
+def queues_order_buttons(queues: list[Queue]) -> list[Button]:
+    """
+    функция делает кнопки с названием бесед
+
+    :queues - двумерный список с очередями
+    """
+    print(queues)
+    return list(map(
+        lambda queue: Button(label=queue.queue_name, payload={
+            "button_type": "queue_order_button",
+            "queue_id": queue.id
+        }).button_json,
+        queues
+    ))
