@@ -1,4 +1,5 @@
-from bot_app.management.commands.bot.middlewares.middlewares import get_datetime
+import json
+from bot_app.management.commands.bot.bot_middlewares.middlewares import get_datetime
 from bot_app.models import Member, Chat, Queue, QueueChat, ChatMember
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError, ChatDoesNotExistError, QueueAlreadySaved, QueueDoesNotExistError
 from datetime import datetime
@@ -76,13 +77,112 @@ def is_owner(user_id: int) -> bool:
     return len(admin_chats) > 0
 
 
-def all_owner_chats(user_id: int) -> bool:
+def all_chat_members(user_id: int) -> list:
     """
-    список всех бесед, где пользователь является владельцем
+    возвращает все связи "беседа-пользователь", где есть пользователь с user_id
 
     :user_id (int) - vk_id пользователя
     """
     return list(ChatMember.objects.filter(
-        chat_member=get_member(vk_id=user_id),
-        is_admin=True
+        chat_member=get_member(vk_id=user_id)
     ))
+
+
+def all_owner_chat_members(user_id: int) -> list:
+    """
+    список всех связей "беседа-пользователь", где пользователь является владельцем
+
+    :user_id (int) - vk_id пользователя
+    """
+    return list(filter(
+        lambda chat_member: chat_member.is_admin,
+        all_chat_members(user_id)
+    ))
+
+
+def all_member_chats(user_id: int) -> list[Chat]:
+    """
+    возвращает список всех бесед, где есть пользователь
+
+    :user_id (int) - vk_id пользователя 
+    """
+    return list(map(
+        lambda chat_member: chat_member.chat,
+        all_chat_members(user_id)
+    ))
+
+
+def all_queues_chat(chat: Chat) -> list[QueueChat]:
+    """
+    возвращает список всех связей "очередь-беседа", с определенной беседой
+
+    :chat (Chat) - объект беседы
+    """
+    return list(QueueChat.objects.filter(chat=chat))
+
+
+def all_queues_in_chat(chat: Chat) -> list[Queue]:
+    """
+    вовзвращает список всех очередей в определенной беседе
+
+    :chat (Chat) - объект беседы
+    """
+    return list(map(
+        lambda queue_chat: queue_chat.queue,
+        all_queues_chat(chat)
+    ))
+
+
+def all_queues_with_member(user_id: int) -> list[Queue]:
+    """
+    возвращает список всех очередей с определенным пользователем
+
+    :user_id (int) - vk_id пользователя
+    """
+    return list(map(
+        lambda chat: all_queues_in_chat(chat),
+        all_member_chats(user_id)
+    ))
+
+
+def get_queue_by_id(queue_id: int) -> Queue:
+    """
+    возвращает очередь по её id номеру из бд
+
+    :queue_id (int) - id номер очереди в бд
+    """
+    try:
+        return Queue.objects.filter(id=queue_id)[0]
+    except IndexError:
+        raise QueueDoesNotExistError
+
+
+def queue_add_member(queue: Queue, user_id: int) -> None:
+    """
+    добавление участника в очередь
+
+    :queue (Queue) - объект очереди
+    :user_id (int) - vk_id пользователя
+    """
+    queue_members: list[dict] = json.loads(queue.queue_members)
+    queue_members.append({"member": user_id})
+    queue.queue_members = json.dumps(queue_members)
+    queue.save()
+
+
+def get_queue_chat_by_queue(queue: Queue) -> QueueChat:
+    """
+    вовзвращает связь "очередь-беседа" из бд по переданной очереди
+
+    :queue (Queue) - объект очереди
+    """
+    return QueueChat.objects.filter(queue=get_queue_by_id(queue_id=queue.id))[0]
+
+
+def get_chat_by_queue(queue: Queue) -> Chat:
+    """
+    возвращает беседу из связи "очередь-беседа" из бд по переданной очереди
+
+    :queue (Queue) - объект очереди
+    """
+    return get_queue_chat_by_queue(queue).chat

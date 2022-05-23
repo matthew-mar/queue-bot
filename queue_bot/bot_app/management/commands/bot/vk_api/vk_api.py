@@ -1,5 +1,5 @@
 import vk
-from bot_app.management.commands.bot.middlewares.read_token import read_token
+from bot_app.management.commands.bot.bot_middlewares.read_token import read_token
 from abc import ABC
 from vk_api.utils import get_random_id
 

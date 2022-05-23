@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button
-from bot_app.management.commands.bot.middlewares.middlewares import get_week_day
-from bot_app.models import ChatMember
+from bot_app.management.commands.bot.bot_middlewares.middlewares import get_week_day
+from bot_app.models import ChatMember, Queue
 
 
 def days_buttons():
@@ -58,3 +58,21 @@ def chat_buttons(chats_members: list[ChatMember]) -> list[Button]:
         make_chat_button,
         chats_members
     ))
+
+
+def queues_buttons(queues: list[list[Queue]]) -> list[Button]:
+    """
+    функция делает кнопки с названием бесед
+
+    :queues - двумерный список с очередями
+    """
+    buttons = []
+    for queue_list in queues:
+        buttons.extend(list(map(
+            lambda queue: Button(label=queue.queue_name, payload={
+                "button_type": "queue_enroll_button",
+                "queue_id": queue.id
+            }).button_json,
+            queue_list
+        )))
+    return buttons

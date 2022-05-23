@@ -41,3 +41,19 @@ class QueueCreateMessages:
     QUEUE_SUCCESSFULLY_SAVED_MESSAGE = "очередь успешно сохранена"
 
     YES_NO_ERROR_MESSAGE = "ответьте да или нет"
+
+
+class QueueEnrollMessages:
+    NO_QUEUES_MESSAGE = "для вас нет очередей"
+
+    CHOOSE_QUEUE_MESSAGE = "выберите очередь, в которую хотите записаться"
+
+    ALREADY_IN_QUEUE_MESSAGE =(
+        "вы уже находитесь в этой очереди\n"
+        "ваш текущий порядковый номер - {0}"
+    )
+
+    QUEUE_ENROLLED_MESSAGE = (
+        "вы записались в очередь {0} из беседы {1}\n"
+        "ваш текущий номер - {2}"
+    )

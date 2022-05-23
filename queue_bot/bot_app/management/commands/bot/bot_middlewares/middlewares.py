@@ -1,7 +1,7 @@
 from datetime import datetime
-from bot_app.management.commands.bot.middlewares.vk_api_middlewares import get_chat_members
+from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import get_chat_members
 from bot_app.management.commands.bot.vk_api.longpoll.responses import MembersResponse
-from bot_app.models import Member, ChatMember
+from bot_app.models import Member, ChatMember, Queue
 import json
 
 
@@ -91,3 +91,44 @@ def get_members(peer_id: int) -> list[dict[str:int]]:
         lambda profile: {"member": profile.user_id},
         chat_members.profiles
     ))
+
+
+def no_queues(queues: list[Queue]) -> bool:
+    """
+    принимает двумерный список с очередями и проверяет его на отсутствие очередей
+    
+    :queues (list[Queue]) - список с очередями
+    """
+    return sum(map(lambda queues_list: len(queues_list), queues)) == 0
+
+
+def get_members_ids(queue_members: dict) -> list[int]:
+    """
+    вовзвращает список vk_id пользователей, находящихся в очереди
+    """
+    return list(map(
+        lambda queue_member: queue_member["member"],
+        json.loads(queue_members)
+    ))
+
+
+def member_in_queue(queue: Queue, user_id: int) -> bool:
+    """
+    проверяет является ли пользователь участником очереди
+
+    :queue (Queue) - очередь
+    :user_id (int) - vk_id пользователя
+    """
+    members_ids: list[int] = get_members_ids(queue_members=queue.queue_members)
+    return user_id in members_ids
+
+
+def get_member_order(queue: Queue, user_id: int) -> int:
+    """
+    вовзвращает порядковый номер участника очереди
+
+    :queue (Queue) - очередь
+    :user_id (int) - vk_id пользователя
+    """
+    members_ids: list[int] = get_members_ids(queue_members=queue.queue_members)
+    return members_ids.index(user_id) + 1

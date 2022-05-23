@@ -3,15 +3,15 @@ from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError
-from bot_app.management.commands.bot.dialog_bot.messages import QueueCreateMessages
-from bot_app.management.commands.bot.middlewares.bot_api_middlewares import send_signal
+from bot_app.management.commands.bot.dialog_bot.messages import QueueCreateMessages, QueueEnrollMessages
+from bot_app.management.commands.bot.bot_middlewares.bot_api_middlewares import send_signal
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, UserResponse
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from datetime import datetime
-from bot_app.management.commands.bot.middlewares.keyboard_middlewares import chat_buttons, dialog_standart_buttons, days_buttons, yes_no_buttons
-from bot_app.management.commands.bot.middlewares.middlewares import get_datetime, get_members, get_queue_day, get_start_time, get_time, members_saved
-from bot_app.management.commands.bot.middlewares.db_middlewares import all_owner_chats, get_chat, queue_saved, is_owner
+from bot_app.management.commands.bot.bot_middlewares.keyboard_middlewares import chat_buttons, dialog_standart_buttons, days_buttons, queues_buttons, yes_no_buttons
+from bot_app.management.commands.bot.bot_middlewares.middlewares import get_datetime, get_member_order, get_members, get_queue_day, get_start_time, get_time, members_saved, no_queues, member_in_queue
+from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_member_chats, all_owner_chat_members, all_queues_with_member, get_chat, get_chat_by_queue, get_queue_by_id, queue_add_member, queue_saved, is_owner
 
 
 class DialogStartCommand(BotCommand):
@@ -82,7 +82,7 @@ class QueueCreateCommand(BotCommand):
         
         """
         # полчение кнопок с беседами, где пользователь владелец
-        chat_members: list[ChatMember] = all_owner_chats(user_id=event.from_id)
+        chat_members: list[ChatMember] = all_owner_chat_members(user_id=event.from_id)
         self.api.messages.send(
             peer_id=event.peer_id,
             message=QueueCreateMessages.CHOOSE_CHAT_MESSAGE,
@@ -254,103 +254,65 @@ class QueueEnrollCommand(BotCommand):
     """ команда записи в очередь """
     def __init__(self) -> None:
         super().__init__()
-        self.__current_step: dict = {}
     
     def start(self, event: Event, **kwargs) -> Any:
         super().start(event)
-        if event.from_id not in self.__current_step:
-            self.__current_step[event.from_id] = self.send_queues
-        current_step_method = self.__current_step[event.from_id]
-        current_step_method(event)
+    
+    def start_action(self, event: Event) -> None:
+        """ 
+        в начальном действии команда отправляет очереди, 
+        в которые можно записаться 
+        """
+        self.go_next(
+            event=event,
+            next_method=self.send_queues,
+            next_step=self.get_queue
+        )
 
     def send_queues(self, event: Event) -> None:
-        """ получение очередей, в которые может добавиться пользователь """
-        chats: list[Chat] = list(map(  # список бесед, в которых есть пользователь
-            lambda chat_member: chat_member.chat,
-            ChatMember.objects.filter(chat_member=Member.objects.filter(member_vk_id=event.from_id)[0])
-        ))
-        queues: list[Queue] = []
-        for chat in chats:
-            queues.extend(list(map(
-                lambda queue_chat: queue_chat.queue,
-                QueueChat.objects.filter(chat=chat)
-            )))
-        if len(queues) == 0:
+        """ отправка очередей, в которые может добавиться пользователь """
+        queues: list[list[Queue]] = all_queues_with_member(user_id=event.from_id)
+        if no_queues(queues):
             self.api.messages.send(
                 peer_id=event.peer_id,
-                message="для вас нет очередей"
+                message=QueueEnrollMessages.NO_QUEUES_MESSAGE
             )
-            self.command_ended = True
+            self.end(event)
         else:
-            buttons = list(map(
-                lambda queue: Button(label=queue.queue_name, payload={
-                    "button_type": "queue_enroll_button",
-                    "queue_id": queue.id
-                }).button_json,
-                queues
-            ))
             self.api.messages.send(
                 peer_id=event.peer_id,
-                message="выберите очередь, в которую хотите записаться",
-                keyboard=make_keyboard(
-                    inline=False,
-                    buttons=buttons[:40]
-                )
+                message=QueueEnrollMessages.CHOOSE_QUEUE_MESSAGE,
+                keyboard=make_keyboard(buttons=queues_buttons(queues))
             )
-            self.__current_step[event.from_id] = self.get_queue
         
     def get_queue(self, event: Event) -> None:
         """ получение очереди из сообщения """
         if event.button_type == "queue_enroll_button":
-            queue: Queue = Queue.objects.filter(id=event.payload["queue_id"])[0]
-            members: list[dict] = json.loads(queue.queue_members)
-            members_ids = list(map(lambda member: member["member"], members))
-            if event.from_id not in members_ids:
-                members.append({
-                    "member": event.from_id
-                })
-                members_ids.append(event.from_id)
-                queue.queue_members = json.dumps(members)
-                queue.save()
-                self.api.messages.send(
-                    peer_id=event.peer_id,
-                    message=(
-                        "вы записались в очередь {0} из беседы {1}\n"
-                        "ваш текущий номер - {2}"
-                        .format(queue.queue_name, QueueChat.objects.filter(
-                            queue=Queue.objects.filter(id=queue.id)[0])[0].chat,
-                            members_ids.index(event.from_id)+1
-                        )
-                    ),
-                    keyboard=make_keyboard(
-                        inline=False,
-                        buttons=[
-                            Button(label="создать очередь").button_json,
-                            Button(label="записаться в очередь").button_json,
-                            Button(label="удалиться из очереди").button_json,
-                            Button(label="получить место в очереди").button_json
-                        ]
+            queue: Queue = get_queue_by_id(queue_id=event.payload["queue_id"])
+            if member_in_queue(queue=queue, user_id=event.from_id):
+                message=QueueEnrollMessages.ALREADY_IN_QUEUE_MESSAGE.format(
+                    get_member_order(
+                        queue=queue,
+                        user_id=event.from_id
                     )
                 )
             else:
-                self.api.messages.send(
-                    peer_id=event.peer_id,
-                    message=(
-                        "вы уже находитесь в этой очереди\n"
-                        "ваш текущий порядковый номер - {0}".format(members_ids.index(event.from_id)+1)
-                    ),
-                    keyboard=make_keyboard(
-                        inline=False,
-                        buttons=[
-                            Button(label="создать очередь").button_json,
-                            Button(label="записаться в очередь").button_json,
-                            Button(label="удалиться из очереди").button_json,
-                            Button(label="получить место в очереди").button_json
-                        ]
-                    )
+                queue_add_member(queue=queue, user_id=event.from_id)
+                message=QueueEnrollMessages.QUEUE_ENROLLED_MESSAGE.format(
+                    queue.queue_name, 
+                    get_chat_by_queue(queue),
+                    get_member_order(queue=queue, user_id=event.from_id)
                 )
-            self.__current_step.pop(event.from_id)
-            self.command_ended = True
+            
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=message,
+                keyboard=make_keyboard(
+                    inline=False,
+                    buttons=dialog_standart_buttons
+                )
+            )
+        self.end(event)
 
 
 class QueueQuitCommand(BotCommand):
