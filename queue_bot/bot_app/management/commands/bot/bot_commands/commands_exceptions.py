@@ -12,3 +12,11 @@ class MemberNotSavedError(Exception):
 
 class QueueAlreadySaved(Exception):
     pass
+
+
+class ChatDoesNotExistError(Exception):
+    pass
+
+
+class QueueDoesNotExistError(Exception):
+    pass

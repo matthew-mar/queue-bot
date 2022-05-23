@@ -423,7 +423,7 @@ class MembersResponse:
             return list(map(Profile, profiles))
 
 
-class UsersResponse:
+class UserResponse:
     """ обработчик ответа от метода api users.get """
     def __init__(self, user_response: dict) -> None:
         self.__user: dict = user_response

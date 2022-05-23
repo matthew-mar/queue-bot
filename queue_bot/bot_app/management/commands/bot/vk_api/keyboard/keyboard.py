@@ -1,5 +1,6 @@
 import json
 from pprint import pprint
+from datetime import datetime, timedelta
 
 
 THIS_DIR = "/".join(__file__.split("/")[:-1])
@@ -67,9 +68,32 @@ def make_keyboard(
 
 if __name__ == "__main__":
     buttons = []
-    for i in range(3):
-        button = Button(label=f"a{i}", payload={"id": i}, color="primary")
-        buttons.append(button.button_json)
-    pprint(buttons)
-    print()
-    pprint(make_keyboard(buttons=buttons))
+
+    week_days = {
+        0: "понедельник",
+        1: "вторник",
+        2: "среда",
+        3: "четверг",
+        4: "пятница",
+        5: "суббота",
+        6: "воскрессенье"
+    }
+    
+    today = datetime.today()
+
+    week_buttons = []
+    for i in range(7):
+        date = today + timedelta(days=i)
+        week_buttons.append(Button(
+            label=week_days[date.weekday()],
+            payload={
+                "button_type": "week_day",
+                "date": {
+                    "day": date.day,
+                    "month": date.month,
+                    "year": date.year
+                }
+            }
+        ).button_json)
+    
+    pprint(week_buttons)

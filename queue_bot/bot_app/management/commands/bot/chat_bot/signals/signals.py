@@ -1,7 +1,7 @@
 import json
 from bot_app.management.commands.bot.bot_signals.signal import Signal
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
-from bot_app.management.commands.bot.vk_api.longpoll.responses import UsersResponse
+from bot_app.management.commands.bot.vk_api.longpoll.responses import UserResponse
 from bot_app.management.commands.bot.vk_api.vk_api import Users
 from bot_app.models import Chat, Queue, QueueChat
 
@@ -33,8 +33,8 @@ class NewQueueSignal(Signal):
                 lambda queue_member: queue_member["member"],
                 queue_members
             ))
-            users: list[UsersResponse] = list(map(
-                lambda user_id: UsersResponse(self.api.users.get(user_id)),
+            users: list[UserResponse] = list(map(
+                lambda user_id: UserResponse(self.api.users.get(user_id)),
                 members_ids
             ))
             users_message = "\n".join(

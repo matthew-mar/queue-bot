@@ -28,6 +28,7 @@ class DialogCommandsHandler(CommandsHandler):
                 self._current_command[event.from_id] = command_text
                 
             command: BotCommand = self._commands[self._current_command[event.from_id]]
+            print(command)
             command.start(event)
         except KeyError:
             self._current_command.pop(event.from_id)

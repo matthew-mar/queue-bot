@@ -3,7 +3,7 @@ from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError
-from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, Event, MembersResponse, Profile, UsersResponse
+from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, Event, MembersResponse, Profile, UserResponse
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 
@@ -174,7 +174,7 @@ class InviteUserCommand(BotCommand):
                 если выброшена IndexError то пользователя с таким id 
                 нет в бд. Значит пользователя нужно сохранить
                 """
-                member_response: UsersResponse = UsersResponse(self.api.users.get(event.action["member_id"]))
+                member_response: UserResponse = UserResponse(self.api.users.get(event.action["member_id"]))
                 new_member: Member = Member(
                     member_vk_id=member_response.id,
                     name=member_response.first_name,

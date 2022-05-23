@@ -1,35 +1,17 @@
 import json
 from pprint import pprint
 from typing import Any
-from bot_app.bot_api.bot_api import BotApi
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
-from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError, QueueAlreadySaved
-from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, MembersResponse, UsersResponse
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError
+from bot_app.management.commands.bot.dialog_bot.messages import QueueCreateMessages
+from bot_app.management.commands.bot.middlewares.bot_api_middlewares import send_signal
+from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, UserResponse
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
-from bot_app.management.commands.bot.vk_api.vk_api import Session
 from datetime import datetime
-
-
-def is_owner(event: Event) -> bool:
-    """ проверка является ли пользователем владельцем беседы """
-    api = Session().api
-    user_response: dict = api.users.get(user_ids=event.from_id)
-    user: UsersResponse = UsersResponse(user_response)
-    try:
-        member: Member = Member.objects.filter(member_vk_id=user.id)[0]
-        # список чатов, где пользователь является владельцем
-        admin_chats: list[ChatMember] = list(ChatMember.objects.filter(
-            chat_member=member,
-            is_admin=True
-        ))
-        return len(admin_chats) > 0
-    except IndexError:
-        """ 
-        если выброшена IndexError, то пользователя нет в бд.
-        это означает, что пользователя нет ни в одной беседе, где есть бот.
-        """
-        raise MemberNotSavedError()
+from bot_app.management.commands.bot.middlewares.keyboard_middlewares import chat_buttons, dialog_standart_buttons, days_buttons, yes_no_buttons
+from bot_app.management.commands.bot.middlewares.middlewares import get_datetime, get_members, get_queue_day, get_start_time, get_time, members_saved
+from bot_app.management.commands.bot.middlewares.db_middlewares import all_owner_chats, get_chat, queue_saved, is_owner
 
 
 class DialogStartCommand(BotCommand):
@@ -38,25 +20,21 @@ class DialogStartCommand(BotCommand):
         super().__init__()
     
     def start(self, event: Event, **kwargs) -> Any:
-        """ 
-        стартовая команда определяет какой пользователь пишет боту:
-        обычный пользователь или владелец беседы
-        """
         super().start(event)
+    
+    def start_action(self, event: Event) -> None:
+        """
+        стартовая команда предоставляет пользователю функционал бота
+        """
         self.api.messages.send(
             peer_id=event.peer_id,
             message="функции бота",
             keyboard=make_keyboard(
                 inline=False,
-                buttons=[
-                    Button(label="создать очередь").button_json,
-                    Button(label="записаться в очередь").button_json,
-                    Button(label="удалиться из очереди").button_json,
-                    Button(label="получить место в очереди").button_json
-                ]
+                buttons=dialog_standart_buttons
             )
         )
-        self.command_ended = True
+        self.end(event)
 
 
 class QueueCreateCommand(BotCommand):
@@ -65,78 +43,97 @@ class QueueCreateCommand(BotCommand):
         super().__init__()
         # информация об очереди будет закрепляться за user.id 
         self.__queue_info: dict[int:dict] = {}
-        # текущий шаг команды, ключом выступает user.id
-        self.__current_step: dict = {}
 
     def start(self, event: Event, **kwargs) -> Any:
         super().start(event)
+    
+    def start_action(self, event: Event) -> None:
+        """
+        начальное действие команды определяет какой пользователь пишет боту.
+        если пользователь является владельцем беседы - команда идет дальше.
+        если пользователь не является владельцем беседы - команда завершается.
+        если пользователя нет в бд - команда завершается.
+
+        :event (Event) - событие с longpoll сервера
+        """
         try:
-            if is_owner(event):
-                if event.from_id not in self.__current_step:
-                    self.__current_step[event.from_id] = self.choose_chat
-                current_step_method = self.__current_step[event.from_id]
-                current_step_method(event)
+            if is_owner(user_id=event.from_id):
+                self.go_next(
+                    event=event,
+                    next_method=self.choose_chat,
+                    next_step=self.save_chat
+                )
             else:
                 self.api.messages.send(
                     peer_id=event.peer_id,
-                    message=(
-                        "чтобы создавать очереди нужно быть владельцем беседы, где есть бот"
-                    )
+                    message=QueueCreateMessages.NOT_OWNER_MESSAGE
                 )
-                self.command_ended = True
-        except:
+                self.end(event)
+        except MemberNotSavedError:
             self.api.messages.send(
                 peer_id=event.peer_id,
-                message=(
-                    "чтобы пользоваться функциями бота нужно состоять в одной беседе с ботом"
-                )
+                message=QueueCreateMessages.MEMBER_NOT_SAVED_MESSAGE
             )
-            self.command_ended = True
+            self.end(event)
 
     def choose_chat(self, event: Event) -> None:
-        """ отправка сообщения о выборе беседы """
-        if is_owner(event):
-            chats: list[dict] = [  # список чатов, в которых пользователь админ
-                Button(label=chat_member.chat.chat_name).button_json
-                for chat_member in ChatMember.objects.filter(
-                    chat_member=Member.objects.filter(member_vk_id=event.from_id)[0],
-                    is_admin=True
-                )
-            ]
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message="выберите беседу, в которой будет очередь",
-                keyboard=make_keyboard(buttons=chats)
+        """ 
+        отправка сообщения о выборе беседы 
+        
+        """
+        # полчение кнопок с беседами, где пользователь владелец
+        chat_members: list[ChatMember] = all_owner_chats(user_id=event.from_id)
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message=QueueCreateMessages.CHOOSE_CHAT_MESSAGE,
+            keyboard=make_keyboard(buttons=chat_buttons(chat_members))
+        )
+
+    def choose_queue_name(self, event: Event) -> None:
+        """ отправка сообщения о имени очереди """
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message=QueueCreateMessages.QUEUE_NAME_ENTER_MESSAGE
+        )
+
+    def choose_day(self, event: Event) -> None:
+        """ отправка сообщения о выборе дня """
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message=QueueCreateMessages.DAY_ENTER_MESSAGE,
+            keyboard=make_keyboard(buttons=days_buttons())
+        )
+
+    def choose_time(self, event: Event) -> None:
+        """ отправка сообщения о выборе времени """
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message=QueueCreateMessages.TIME_ENTER_MESSAGE
+        )
+    
+    def choose_members_saving(self, event: Event) -> None:
+        """ отправка сообщения о выборе сохранения участников беседы в очередь """
+        self.api.messages.send(
+            peer_id=event.peer_id,
+            message=QueueCreateMessages.MEMBERS_ADD_MESSAGE,
+            keyboard=make_keyboard(buttons=yes_no_buttons)
+        )
+    
+    def save_chat(self, event: Event) -> None:
+        """ сохранение чата """
+        if event.button_type == "chat_name_button":
+            chat: Chat = get_chat(vk_id=event.payload["chat_id"])
+            self.__queue_info[event.from_id] = {"chat": chat}
+
+            self.go_next(
+                event=event,
+                next_method=self.choose_queue_name,
+                next_step=self.save_queue_name
             )
         else:
             self.api.messages.send(
-                peer_id=event.peer_id,
-                message="вы не можете создавать очереди"
-            )
-        
-        # переход к следующему шагу
-        self.__current_step[event.from_id] = self.save_chat
-    
-    def save_chat(self, event: Event) -> None:
-        """ сохранение названия чата """
-        try:
-            chat: Chat = Chat.objects.filter(chat_name=event.text)[0]
-            self.__queue_info[event.from_id] = {"chat": chat}
-
-            # переход к следующему шагу
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message="введите название очереди"
-            )
-            self.__current_step[event.from_id] = self.save_queue_name
-        except IndexError:
-            """
-            если выбрасывается IndexError, то пользователь ввел имя чата,
-            которого нет в бд.
-            """
-            self.api.messages.send(
                 peer_id=event.from_id,
-                message="ошибка! вы не являетесь владельцем этой беседы"
+                message=QueueCreateMessages.OWNER_ERROR_MESSAGE
             )
             return self.choose_chat(event)
     
@@ -145,98 +142,55 @@ class QueueCreateCommand(BotCommand):
         queue_name: str = event.text.lower()
         self.__queue_info[event.from_id]["queue_name"] = queue_name
 
-        days_buttons: list[dict] = list(map(
-            lambda day: Button(label=day).button_json,
-            self.__get_days()
-        ))
-
-        # переход к следующему шагу
-        self.api.messages.send(
-            peer_id=event.peer_id,
-            message="введите день недели, когда начнет работать очередь",
-            keyboard=make_keyboard(buttons=days_buttons)
+        self.go_next(
+            event=event,
+            next_method=self.choose_day,
+            next_step=self.save_day
         )
-        self.__current_step[event.from_id] = self.save_day
     
     def save_day(self, event: Event) -> None:
         """ сохранения дня """
-        week_days: dict[str:int] = {  # словарь соответствий дня недели с его номером
-            "понедельник": 1,
-            "вторник": 2,
-            "среда": 3,
-            "четверг": 4,
-            "пятница": 5,
-            "суббота": 6,
-            "воскресенье": 7
-        }
-
-        try:
-            self.__queue_info[event.from_id]["day"] = week_days[event.text]
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message=(
-                    "укажите время, когда начнет работать очередь\n"
-                    "формат ввода: hh:mm"
-                )
+        if event.button_type == "week_day":
+            self.__queue_info[event.from_id]["date"] = event.payload["date"]
+            
+            self.go_next(
+                event=event,
+                next_method=self.choose_time,
+                next_step=self.save_time
             )
-            self.__current_step[event.from_id] = self.save_time
-        except KeyError:
-            """
-            если была выброшена KeyError, то пользователь не ввел название дня
-            недели.
-            """
-            days_buttons: list[dict] = list(map(
-                lambda day: Button(label=day).button_json,
-                self.__get_days()
-            ))
-
+        else:
             self.api.messages.send(
                 peer_id=event.peer_id,
-                message="ошибка! введите правильно день недели",
-                keyboard=make_keyboard(buttons=days_buttons)
+                message=QueueCreateMessages.DAY_ERROR_MESSAGE,
+                keyboard=make_keyboard(buttons=days_buttons())
             )
 
     def save_time(self, event: Event) -> None:
         """ сохраняет введенное время """
         try:
-            time = tuple(map(int, event.text.split(":")))
-            if time[0] > 23 or time[1] > 60 or time[0] < 0 or time[1] < 0:
-                raise ValueError
-            self.__queue_info[event.from_id]["time"] = time
+            self.__queue_info[event.from_id]["time"] = get_time(time_string=event.text)
 
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message=(
-                    "Добавить участников беседы в очередь?\n"
-                    "Да - участники беседы добавятся автоматически по порядку\n"
-                    "Нет - участники беседы будут сами записываться в произвольном порядке"
-                ),
-                keyboard=make_keyboard(buttons=[
-                    Button(label="да").button_json,
-                    Button(label="нет").button_json
-                ])
+            self.go_next(
+                event=event,
+                next_method=self.choose_members_saving,
+                next_step=self.save_users
             )
-            self.__current_step[event.from_id] = self.save_users
         except ValueError:
             return self.api.messages.send(
                 peer_id=event.peer_id,
-                message="ошибка! неверный формат данных"
+                message=QueueCreateMessages.TIME_FORMAT_ERROR
             )
-
+            
     def save_users(self, event: Event) -> None:
         """ сохранение пользователей """
         if event.text == "да":
-            chat_members: dict = self.api.messages.get_conversation_members(
+            members: list = get_members(
                 peer_id=self.__queue_info[event.from_id]["chat"].chat_vk_id
             )
-            members_response: MembersResponse = MembersResponse(chat_members)
-            members: list = list(map(
-                lambda profile: {"member": profile.user_id},
-                members_response.profiles
-            ))
             queue: Queue = Queue(
                 queue_name=self.__queue_info[event.from_id]["queue_name"],
-                queue_members=json.dumps(members))
+                queue_members=json.dumps(members)
+            )
             queue.save()
         elif event.text == "нет":
             queue: Queue = Queue(
@@ -244,131 +198,56 @@ class QueueCreateCommand(BotCommand):
                 queue_members="[]"
             )
             queue.save()
+        else:
+            return self.api.messages.send(
+                peer_id=event.peer_id,
+                message=QueueCreateMessages.YES_NO_ERROR_MESSAGE,
+                keyboard=make_keyboard(buttons=yes_no_buttons)
+            )
+
         self.__queue_info[event.from_id]["queue"] = queue
         self.save_queue(event=event)
     
     def save_queue(self, event: Event) -> None:
         """ сохраняет очередь в бд """
-        from datetime import datetime
-
         queue_info: dict = self.__queue_info[event.from_id]
         chat: Chat = queue_info["chat"]
         queue: Queue = queue_info["queue"]
-        queue_datetime: datetime = self.__get_datetime(
-            day=queue_info["day"],
-            hours=queue_info["time"][0],
-            minutes=queue_info["time"][1]
-        )
+        queue_datetime: datetime = get_datetime(queue_info)
 
-        try:
-            """
-            проверка на существование очереди с введенными данными в бд.
-            """
-            # попытка получения очереди из бд
-            queues: list[Queue] = list(Queue.objects.filter(queue_name=queue_info["queue"].queue_name))
-            for queue in queues:
-                try:
-                    QueueChat.objects.filter(
-                        queue_datetime=queue_datetime,
-                        chat=chat,
-                        queue=queue
-                    )[0]
-                    raise QueueAlreadySaved()
-                except IndexError:
-                    continue
-            
+        if queue_saved(queue_info):  # если такая очередь сохранена
+            queue_info["queue"].delete()
+            self.api.messages.send(
+                peer_id=event.peer_id,
+                message=QueueCreateMessages.QUEUE_ALREADY_SAVED_MESSAGE
+            )
+        else:
             # сохранение связи между очередью и беседой
             QueueChat(
                 queue_datetime=queue_datetime,
                 chat=chat,
                 queue=queue).save()
-
             self.api.messages.send(
                 peer_id=event.peer_id,
-                message="очередь успешно сохранена",
+                message=QueueCreateMessages.QUEUE_SUCCESSFULLY_SAVED_MESSAGE,
             )
 
-            bot_api: BotApi = BotApi()
-            data={
-                "signal_name": "new_queue",
-                "args": {
-                    "chat_id": chat.chat_vk_id,
-                    "queue_id": queue.id,
-                    "queue_day": queue_datetime.strftime("%d.%m"),
-                    "queue_start_time": "{hour}:{minutes}".format(
-                        hour=queue_info["time"][0], 
-                        minutes=queue_info["time"][1]),
-                    "members_saved": not queue.queue_members == "[]"
+            send_signal(  # отправить сигнал чат боту о появлении новой очереди
+                to="chat",
+                data={
+                    "signal_name": "new_queue",
+                    "args": {
+                        "chat_id": chat.chat_vk_id,
+                        "queue_id": queue.id,
+                        "queue_day": get_queue_day(queue_datetime),
+                        "queue_start_time": get_start_time(time=queue_info["time"]),
+                        "members_saved": members_saved(queue_members=queue.queue_members)
+                    }
                 }
-            }
-            bot_api.send_signal(to="chat", data={"data": json.dumps(data)})
-        except QueueAlreadySaved:
-            queue_info["queue"].delete()
-            self.api.messages.send(
-                peer_id=event.peer_id,
-                message="ошибка! такая очередь уже существует."
             )
 
         self.__queue_info.pop(event.from_id)
-        self.__current_step.pop(event.from_id)
-        self.command_ended = True
-
-    def __get_days(self) -> list[str]:
-        """ функция отправляет список доступных дней для пользователя """
-        import datetime
-
-        week_days: list[str] = {
-            0: "понедельник",
-            1: "вторник",
-            2: "среда",
-            3: "четверг",
-            4: "пятница",
-            5: "суббота",
-            6: "воскресенье"
-        }
-        
-        days: list[str] = []
-
-        today: int = datetime.date.today().weekday()
-        for day in week_days:
-            if day >= today:
-                days.append(week_days[day])
-        return days
-    
-    def __get_datetime(self, day: int, hours: int, minutes: int) -> datetime:
-        """ возвращает дату и время начала очереди """
-        from week import Week
-
-        months = {
-            1: 31,
-            2: 28,
-            3: 31,
-            4: 30,
-            5: 31,
-            6: 30,
-            7: 31,
-            8: 31,
-            9: 30,
-            10: 31,
-            11: 30,
-            12: 31
-        }
-        startdate = Week.thisweek().startdate
-        original_month = int(startdate.strftime("%m"))
-        days = int(startdate.strftime("%d")) + day - 1
-        month = original_month + (days // months[original_month])
-        days %= months[original_month] - 1
-
-        return datetime(
-            year=int(startdate.strftime("%Y")),
-            month=month,
-            day=days,
-            hour=hours,
-            minute=minutes
-        )
-
-    def queue_saved(self, user_id: int) -> bool:
-        return user_id not in self.__current_step
+        self.end(event)
 
 
 class QueueEnrollCommand(BotCommand):
@@ -599,8 +478,8 @@ class GetQueuePlaceCommand(BotCommand):
             users: list[str] = list(map(
                 lambda member_id: "{index}. {name} {surname}".format(
                     index=members_ids.index(member_id) + 1,
-                    name=UsersResponse(self.api.users.get(member_id)).first_name,
-                    surname=UsersResponse(self.api.users.get(member_id)).last_name
+                    name=UserResponse(self.api.users.get(member_id)).first_name,
+                    surname=UserResponse(self.api.users.get(member_id)).last_name
                 ),
                 members_ids
             ))
