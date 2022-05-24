@@ -1,7 +1,7 @@
 from datetime import datetime
 from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_queues_in_chat, all_queues_in_member_chat
 from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import get_chat_members, get_user
-from bot_app.management.commands.bot.vk_api.longpoll.responses import MembersResponse, UserResponse
+from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, MembersResponse, UserResponse
 from bot_app.models import Member, ChatMember, Queue
 import json
 
@@ -150,3 +150,14 @@ def get_queue_order(queue_members) -> str:
         member_ids
     ))
     return "\n".join(users)
+
+
+def is_admin(conversation: ConversationsResponse) -> bool:
+    """
+    проверка, является ли бот админом в беседе
+
+    :conversation (ConversationsResponse) - объект беседы
+
+    если значение count = 1 - бот является админом
+    """
+    return conversation.count > 0

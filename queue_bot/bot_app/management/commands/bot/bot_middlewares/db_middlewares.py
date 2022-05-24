@@ -1,7 +1,8 @@
 import json
 from bot_app.management.commands.bot.bot_middlewares.get_datetime import get_datetime
+from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, MembersResponse, Profile
 from bot_app.models import Member, Chat, Queue, QueueChat, ChatMember
-from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError, ChatDoesNotExistError, QueueAlreadySaved, QueueDoesNotExistError
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError, MemberNotSavedError, ChatDoesNotExistError, QueueAlreadySaved, QueueDoesNotExistError
 from datetime import datetime
 
 
@@ -202,3 +203,89 @@ def get_chat_by_queue(queue: Queue) -> Chat:
     :queue (Queue) - объект очереди
     """
     return get_queue_chat_by_queue(queue).chat
+
+
+def save_chat(conversation: ConversationsResponse) -> None:
+    """
+    сохранение беседы в бд
+
+    :peer_id (int) - peer_id беседы
+    """
+    try:
+        chat: Chat = get_chat(vk_id=conversation.peer_id)
+        raise ChatAlreadySavedError(f"беседа {chat.chat_name} уже сохранена")
+    except ChatDoesNotExistError:
+        Chat(
+            chat_name=conversation.title,
+            chat_vk_id=conversation.peer_id
+        ).save()
+
+
+def get_new_chat(conversation: ConversationsResponse) -> Chat:
+    """
+    функция сохраняет новый чат и возвращает его
+
+    :conversation (ConversationResponse) - информация о беседе
+    """
+    save_chat(conversation)
+    return get_chat(vk_id=conversation.peer_id)
+
+
+def save_members(members_info: MembersResponse) -> None:
+    """
+    функция сохраняет участников беседы в бд
+
+    :members_info (MembersResponse) - информация о пользователях
+    """
+    # список пользователей, сохраненных в бд
+    members_vk_ids: list[int] = list(map(
+        lambda member: int(member.member_vk_id),
+        Member.objects.all()
+    ))
+    for member in members_info.profiles:
+        if member.user_id not in members_vk_ids:
+            Member(
+                member_vk_id=member.user_id,
+                name=member.first_name,
+                surname=member.last_name
+            ).save()
+            print("пользователь {name} {surname} сохранен".format(
+                name=member.first_name,
+                surname=member.last_name
+            ))
+
+
+def connect_chat_with_members(chat: Chat, profiles: list[Profile], owner_id: int) -> None:
+    """
+    сохранение связи в бд между участниками беседы и беседой
+
+    :chat (Chat) - объект беседы
+    :profiles (list[Profile]) - список профилей участников беседы
+    :owner_id (int) - vk_id владельца беседы
+    """
+    members: list[Member] = list(map(  # получение участников беседы из бд
+        lambda profile: get_member(vk_id=profile.user_id),
+        profiles
+    ))
+    for member in members:
+        ChatMember(
+            chat=chat,
+            chat_member=member,
+            is_admin=(int(member.member_vk_id) == owner_id)
+        ).save()
+
+
+def save_chat_member(conversation: ConversationsResponse, members: MembersResponse) -> None:
+    """
+    сохранение беседы в бд
+
+    :conversation (ConversationResponse) - информация о беседе
+    :members (MembersResponse) - информация об участниках беседеы
+    """
+    chat: Chat = get_new_chat(conversation)
+    save_members(members_info=members)
+    connect_chat_with_members(
+        chat=chat,
+        profiles=members.profiles,
+        owner_id=conversation.owner_id
+    )

@@ -75,3 +75,19 @@ class GetQueuePlaceMessages:
     CHOOSE_QUEUE_MESSAGE = "выберите очередь"
 
     QUEUE_ORDER_MESSAGE = "ваш номер в очереди - {0}\n{1}"
+
+
+class ChatInvitationMessages:
+    START_MESSAGE = (
+        "чтобы пользоваться моими функциями сделайте меня администратором "
+        "и нажмите кнопку \"start\""
+    )
+
+
+class ChatStartMessages:
+    CHAT_SAVED_MESSAGE = (
+        "ваша беседа успешно сохранена, теперь вы можете "
+        "создавать очереди"
+    )
+
+    NOT_ADMIN_ERROR_MESSAGE = "сделайте бота администратором и повторите попытку"

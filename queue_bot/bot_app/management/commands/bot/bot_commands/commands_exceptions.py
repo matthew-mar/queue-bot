@@ -20,3 +20,7 @@ class ChatDoesNotExistError(Exception):
 
 class QueueDoesNotExistError(Exception):
     pass
+
+
+class ChatBotIsNotAdminError(Exception):
+    pass

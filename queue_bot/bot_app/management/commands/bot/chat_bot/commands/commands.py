@@ -2,7 +2,11 @@ import json
 from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
-from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError, ChatBotIsNotAdminError
+from bot_app.management.commands.bot.bot_middlewares.db_middlewares import connect_chat_with_members, get_new_chat, save_chat, save_chat_member, save_members
+from bot_app.management.commands.bot.bot_middlewares.middlewares import is_admin
+from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import get_chat_members, get_conversation
+from bot_app.management.commands.bot.dialog_bot.messages import ChatInvitationMessages, ChatStartMessages
 from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, Event, MembersResponse, Profile, UserResponse
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
@@ -14,17 +18,18 @@ class ChatInvitationCommand(BotCommand):
         super().__init__()
     
     def start(self, event: Event, **kwargs) -> Any:
+        super().start(event=event, **kwargs)
+    
+    def start_action(self, event: Event) -> None:
         self.api.messages.send(
             peer_id=event.peer_id,
-            message=(
-                "чтобы пользоваться моими функциями сделайте меня администратором "
-                "и нажмите кнопку \"start\""
-            ),
+            message=ChatInvitationMessages.START_MESSAGE,
             keyboard=make_keyboard(
                 inline=False,
                 buttons=[Button(label="start").button_json]
             )
         )
+        self.end(event)
 
 
 class ChatStartCommand(BotCommand):
@@ -33,108 +38,34 @@ class ChatStartCommand(BotCommand):
         super().__init__()
 
     def start(self, event: Event, **kwargs) -> Any:
+        super().start(event=event, **kwargs)
+
+    def start_action(self, event: Event) -> None:
         # получение информации о беседе
-        conversations: dict = self.api.messages.get_conversations_by_id(event.peer_id)
-        conversation_response: ConversationsResponse = ConversationsResponse(conversations=conversations)
-        if self.__is_admin(conversation_response):
+        conversation: ConversationsResponse = get_conversation(peer_id=event.peer_id)
+        # получение участников беседы
+        if is_admin(conversation):
+            members: MembersResponse = get_chat_members(peer_id=event.peer_id)
             try:
-                # сохранение чата
-                chat: Chat = self.__save_chat(conversation_response)
-
-                # получение информации об участниках беседы
-                members: dict = self.api.messages.get_conversation_members(peer_id=event.peer_id)
-                members_response: MembersResponse = MembersResponse(members=members)
-                # соханение участников
-                members: list[Member] = self.__members_save(members_response)
-
-                # сохранение связи между беседой и участниками
-                self.__chat_members_connection(chat, members_response.profiles, conversation_response)
-
+                save_chat_member(
+                    conversation=conversation,
+                    members=members
+                )
                 self.api.messages.send(
                     peer_id=event.peer_id,
-                    message=(
-                        "ваша беседа успешно сохранена, теперь вы можете "
-                        "создавать очереди"
-                    )
+                    message=ChatStartMessages.CHAT_SAVED_MESSAGE
                 )
             except ChatAlreadySavedError as exception:
                 self.api.messages.send(
                     peer_id=event.peer_id,
                     message=exception.args[0]
-                )
+            )
         else:
             self.api.messages.send(
                 peer_id=event.peer_id,
-                message="сделайте бота администратором и повторите попытку"
+                message=ChatStartMessages.NOT_ADMIN_ERROR_MESSAGE
             )
-
-    def __is_admin(self, conversation_response: ConversationsResponse) -> bool:
-        """ проверка, является ли бот админом в беседе """
-        return conversation_response.count > 0
-    
-    def __save_chat(self, conversation_response: ConversationsResponse) -> Chat:
-        """ сохранение чата в бд """
-        try:
-            Chat.objects.filter(chat_vk_id=conversation_response.peer_id)[0]
-            raise ChatAlreadySavedError(f"беседа {conversation_response.title} уже сохранена")
-        except IndexError:
-            """ если выбрасывается IndexError значит беседы нет в бд """
-            # инициализация полей новой беседы
-            chat_name: str = conversation_response.title
-            chat_vk_id: int = conversation_response.peer_id
-            # новая запись в бд
-            chat: Chat = Chat(chat_name=chat_name, chat_vk_id=chat_vk_id)
-            chat.save()
-            print(f"беседа {chat_name} сохранена")
-            return chat
-    
-    def __members_save(self, members_response: MembersResponse) -> list[Member]:
-        """ сохранение участников беседы """
-        # список vk_id пользователей, сохраненных в бд
-        members_vk_ids: list[int] = [
-            int(member.member_vk_id)
-            for member in Member.objects.all()
-        ]
-        # список профилей участников беседы
-        profiles: list[Profile] = members_response.profiles
-
-        members: list[Member] = []
-
-        for member in profiles:
-            if member.user_id not in members_vk_ids:
-                new_member: Member = Member(
-                    member_vk_id=member.user_id,
-                    name=member.first_name,
-                    surname=member.last_name
-                )
-                new_member.save()
-                members.append(new_member)
-                print("пользователь {name} {surname} сохранен".format(
-                    name=member.first_name,
-                    surname=member.last_name
-                ))
-        
-        return members
-    
-    def __chat_members_connection(self, 
-        chat: Chat, 
-        profiles: list[Profile],
-        conversation_response: ConversationsResponse) -> None:
-        """ сохранение в бд связи между беседой и участниками беседы """
-        members: list[Member] = [  # список участников беседы, сохраненных в бд
-            Member.objects.filter(
-                member_vk_id=member.user_id,
-                name=member.first_name,
-                surname=member.last_name
-            )[0]
-            for member in profiles
-        ]
-        for member in members:  # сохранение участников
-            ChatMember(
-                chat=chat,
-                chat_member=member,
-                is_admin=(int(member.member_vk_id) == conversation_response.owner_id)
-            ).save()
+        self.end(event) 
 
 
 class CickUserCommand(BotCommand):
