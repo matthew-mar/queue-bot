@@ -1,8 +1,10 @@
 import json
+from typing import final
 from bot_app.management.commands.bot.bot_middlewares.get_datetime import get_datetime
-from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, MembersResponse, Profile
+from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import get_user
+from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, MembersResponse, Profile, UserResponse
 from bot_app.models import Member, Chat, Queue, QueueChat, ChatMember
-from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError, MemberNotSavedError, ChatDoesNotExistError, QueueAlreadySaved, QueueDoesNotExistError
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError, MemberNotSavedError, ChatDoesNotExistError, NoChatMemberConnection, QueueAlreadySaved, QueueDoesNotExistError
 from datetime import datetime
 
 
@@ -28,6 +30,22 @@ def get_chat(vk_id: int) -> Chat:
         return Chat.objects.filter(chat_vk_id=vk_id)[0]
     except IndexError:
         raise ChatDoesNotExistError
+
+
+def get_chat_member(chat: Chat, chat_member: Member) -> ChatMember:
+    """
+    получение связи "беседа-пользователь"
+
+    :chat (Chat) - объект беседы
+    :chat_member (Member) - объект учатсника беседы
+    """
+    try:
+        return ChatMember.objects.filter(
+            chat=chat,
+            chat_member=chat_member
+        )[0]
+    except IndexError:
+        raise NoChatMemberConnection
 
 
 def get_queue_chat(queue_info: dict) -> Queue:
@@ -289,3 +307,42 @@ def save_chat_member(conversation: ConversationsResponse, members: MembersRespon
         profiles=members.profiles,
         owner_id=conversation.owner_id
     )
+
+
+def delete_chat_member_connection(member_id: int, chat_peer_id: int) -> None:
+    """
+    удаление связи между пользователем и беседой
+
+    :member_id (int) - vk_id пользователя
+    :chat_peer_id (int) - peer_id беседы
+    """
+    kicked_member: Member = get_member(vk_id=member_id)
+    chat: Chat = get_chat(vk_id=chat_peer_id)
+    try:
+        chat_member: ChatMember = get_chat_member(chat=chat, chat_member=kicked_member)
+        chat_member.delete()
+        print(f"{kicked_member.name} {kicked_member.surname} удален")
+    except NoChatMemberConnection:
+        print("пользователь не находился в беседе")
+
+
+def save_new_member(member_id: int, chat_peer_id: int) -> None:
+    """ 
+    сохранение нового участника беседы 
+    """
+    try:
+        new_member: Member = get_member(vk_id=member_id)
+    except MemberNotSavedError:
+        user: UserResponse = get_user(user_id=member_id)
+        new_member: Member = Member(
+            member_vk_id=user.id,
+            name=user.first_name,
+            surname=user.last_name
+        ).save()
+    finally:
+        chat: Chat = get_chat(vk_id=chat_peer_id)
+        ChatMember(
+            chat=chat,
+            chat_member=new_member,
+            is_admin=False
+        ).save()

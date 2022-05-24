@@ -24,3 +24,7 @@ class QueueDoesNotExistError(Exception):
 
 class ChatBotIsNotAdminError(Exception):
     pass
+
+
+class NoChatMemberConnection(Exception):
+    pass
