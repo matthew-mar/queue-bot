@@ -15,8 +15,6 @@ class DialogCommandsHandler(CommandsHandler):
         self._commands["удалиться из очереди"] = QueueQuitCommand()
         self._commands["получить место в очереди"] = GetQueuePlaceCommand()
 
-        self.multi_stage_commands: list[str] = ["создать очередь", ""]
-
     def handle(self, event: Event) -> None:
         try:
             command_text: str = event.text.lower()

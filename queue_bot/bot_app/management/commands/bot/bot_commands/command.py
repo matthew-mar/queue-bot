@@ -31,8 +31,7 @@ class BotCommand(ABC):
     def start(self, event: Event, **kwargs) -> Any:
         """
         точка входа в команду. начало действий команды
-
-        входные параметры:
+        
         :event - событие с VkLongPoll сервера
         """
         self.command_ended = False

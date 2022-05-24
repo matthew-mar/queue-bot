@@ -1,10 +1,9 @@
 import json
-from typing import final
 from bot_app.management.commands.bot.bot_middlewares.get_datetime import get_datetime
 from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import get_user
 from bot_app.management.commands.bot.vk_api.longpoll.responses import ConversationsResponse, MembersResponse, Profile, UserResponse
 from bot_app.models import Member, Chat, Queue, QueueChat, ChatMember
-from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError, MemberNotSavedError, ChatDoesNotExistError, NoChatMemberConnection, QueueAlreadySaved, QueueDoesNotExistError
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import ChatAlreadySavedError, MemberNotSavedError, ChatDoesNotExistError, NoChatMemberConnection, QueueAlreadySaved, QueueChatDoesNotExistError, QueueDoesNotExistError
 from datetime import datetime
 
 
@@ -48,20 +47,16 @@ def get_chat_member(chat: Chat, chat_member: Member) -> ChatMember:
         raise NoChatMemberConnection
 
 
-def get_queue_chat(queue_info: dict) -> Queue:
+def get_queue_chat(queue: Queue) -> QueueChat:
     """
     возвращение связи между чатом и очередью из бд
     
-    :queue_info (dict) - данные об очереди
+    :queue (Queue) - объект очереди
     """
     try:
-        return QueueChat.objects.filter(
-            queue_datetime=get_datetime(queue_info),
-            chat=queue_info["chat"],
-            queue=queue_info["queue"]
-        )[0]
+        return QueueChat.objects.filter(queue=queue)[0]
     except IndexError:
-        raise QueueDoesNotExistError
+        raise QueueChatDoesNotExistError
 
 
 def queue_saved(queue_info: dict) -> bool:
@@ -74,9 +69,9 @@ def queue_saved(queue_info: dict) -> bool:
     queues: list[Queue] = list(Queue.objects.filter(queue_name=queue_info["queue"].queue_name))
     for queue in queues:
         try:
-            queue_chat = get_queue_chat(queue_info)
+            queue_chat = get_queue_chat(queue)
             return True
-        except QueueDoesNotExistError:
+        except QueueChatDoesNotExistError:
             continue
     return False
 
@@ -205,22 +200,13 @@ def queue_delete_member(queue: Queue, user_id: int) -> None:
     queue.save()
 
 
-def get_queue_chat_by_queue(queue: Queue) -> QueueChat:
-    """
-    вовзвращает связь "очередь-беседа" из бд по переданной очереди
-
-    :queue (Queue) - объект очереди
-    """
-    return QueueChat.objects.filter(queue=get_queue_by_id(queue_id=queue.id))[0]
-
-
 def get_chat_by_queue(queue: Queue) -> Chat:
     """
     возвращает беседу из связи "очередь-беседа" из бд по переданной очереди
 
     :queue (Queue) - объект очереди
     """
-    return get_queue_chat_by_queue(queue).chat
+    return get_queue_chat(queue).chat
 
 
 def save_chat(conversation: ConversationsResponse) -> None:

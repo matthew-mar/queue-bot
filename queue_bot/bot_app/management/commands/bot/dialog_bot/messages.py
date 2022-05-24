@@ -91,3 +91,20 @@ class ChatStartMessages:
     )
 
     NOT_ADMIN_ERROR_MESSAGE = "сделайте бота администратором и повторите попытку"
+
+
+class NewQueueSignalMessages:
+    NEW_QUEUE_MESSAGE = (
+        "в вашей беседе появилась очередь {queue_name}\n"
+        "очередь начнет работать {queue_datetime} в {queue_start_time}\n"
+    )
+
+    MEMBERS_SAVED_MESSAGE = (
+        "все пользователи добавлены в очередь\n"
+        "во время начала очереди вам будут приходить уведомления о "
+        "вашей позиции в очеред\n"
+        "текущий порядок очереди:\n\n"
+        "{0}"
+    )
+
+    START_ENROLL_MESSAGE = "вы можете начать записываться в очередь"

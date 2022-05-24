@@ -16,16 +16,8 @@ def get_keyboard() -> dict:
         return json.loads(keyboard_template.read())
 
 
-def test_keyboard() -> str:
-    with open(f"{THIS_DIR}/test_template.json") as test_temp:
-        return test_temp.read()
-
-
 class Button:
-    def __init__(self,
-        label: str,
-        color: str = "secondary",
-        payload: dict = {}) -> None:
+    def __init__(self, label: str, color: str = "secondary", payload: dict = {}) -> None:
         """ создание кнопки """
         self.label: str = label
         self.color: str = color
@@ -44,56 +36,19 @@ class Button:
         return button
 
 
-def make_keyboard(
-    buttons: list[Button],
-    one_time: bool = False,
-    inline: bool = True) -> str:
-        """
-        функция делает клавиатуру из пользовательских кнопок
-        """
-        if len(buttons) == 0:
-            raise ValueError("список buttons пустой, список должен "
-                "содержать как минимум один элемент"
-            )
-        
-        keyboard: dict = get_keyboard()
-        keyboard["one_time"] = one_time
-        keyboard["inline"] = inline
-
-        for i in range(0, len(buttons), 2):
-            keyboard["buttons"].append(buttons[i:i+2])
-        
-        return json.dumps(keyboard)   
-
-
-if __name__ == "__main__":
-    buttons = []
-
-    week_days = {
-        0: "понедельник",
-        1: "вторник",
-        2: "среда",
-        3: "четверг",
-        4: "пятница",
-        5: "суббота",
-        6: "воскрессенье"
-    }
+def make_keyboard(buttons: list[Button], one_time: bool = False, inline: bool = True) -> str:
+    """
+    функция делает клавиатуру из пользовательских кнопок
+    """
+    if len(buttons) == 0:
+        raise ValueError("список buttons пустой, список должен "
+            "содержать как минимум один элемент"
+        )
     
-    today = datetime.today()
-
-    week_buttons = []
-    for i in range(7):
-        date = today + timedelta(days=i)
-        week_buttons.append(Button(
-            label=week_days[date.weekday()],
-            payload={
-                "button_type": "week_day",
-                "date": {
-                    "day": date.day,
-                    "month": date.month,
-                    "year": date.year
-                }
-            }
-        ).button_json)
+    keyboard: dict = get_keyboard()
+    keyboard["one_time"] = one_time
+    keyboard["inline"] = inline
+    for i in range(0, len(buttons), 2):
+        keyboard["buttons"].append(buttons[i:i+2])
     
-    pprint(week_buttons)
+    return json.dumps(keyboard)

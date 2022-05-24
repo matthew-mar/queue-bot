@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
+from bot_app.management.commands.bot.bot_middlewares.db_middlewares import get_chat
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button
 from bot_app.management.commands.bot.bot_middlewares.middlewares import get_week_day
-from bot_app.models import ChatMember, Queue
+from bot_app.models import ChatMember, Queue, QueueChat
 
 
 def days_buttons():
@@ -80,11 +81,10 @@ def queues_buttons(queues: list[list[Queue]]) -> list[Button]:
 
 def queues_delete_buttons(queues: list[Queue]) -> list[Button]:
     """
-    функция делает кнопки с названием бесед
+    функция делает кнопки с названием очередей
 
     :queues - двумерный список с очередями
     """
-    print(queues)
     return list(map(
         lambda queue: Button(label=queue.queue_name, payload={
             "button_type": "queue_delete_button",
@@ -100,11 +100,27 @@ def queues_order_buttons(queues: list[Queue]) -> list[Button]:
 
     :queues - двумерный список с очередями
     """
-    print(queues)
     return list(map(
         lambda queue: Button(label=queue.queue_name, payload={
             "button_type": "queue_order_button",
             "queue_id": queue.id
         }).button_json,
         queues
+    ))
+
+
+def queue_enroll_buttons(peer_id: int) -> list[Button]:
+    """
+    функция делает кнопки для записи в очередь
+    
+    :peer_id (int) - peer_id беседы
+    """
+    return list(map(
+        lambda queue_chat: Button(
+            label=f"записаться в {queue_chat.queue.queue_name}",
+            payload={
+                "button_type": "queue_enroll_button",
+                "queue_id": queue_chat.queue.id
+            }).button_json,
+        QueueChat.objects.filter(chat=get_chat(vk_id=peer_id))
     ))

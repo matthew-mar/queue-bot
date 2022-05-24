@@ -3,7 +3,7 @@ from pprint import pprint
 from typing import Any
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import MemberNotSavedError
-from bot_app.management.commands.bot.dialog_bot.messages import GetQueuePlaceMessages, QueueCreateMessages, QueueEnrollMessages, QueueQuitMessages
+from bot_app.management.commands.bot.dialog_bot.messages import DialogStartMessages, GetQueuePlaceMessages, QueueCreateMessages, QueueEnrollMessages, QueueQuitMessages
 from bot_app.management.commands.bot.bot_middlewares.bot_api_middlewares import send_signal
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, UserResponse
 from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
@@ -29,7 +29,7 @@ class DialogStartCommand(BotCommand):
         """
         self.api.messages.send(
             peer_id=event.peer_id,
-            message="функции бота",
+            message=DialogStartMessages.MESSAGE,
             keyboard=make_keyboard(
                 inline=False,
                 buttons=dialog_standart_buttons
@@ -54,8 +54,6 @@ class QueueCreateCommand(BotCommand):
         если пользователь является владельцем беседы - команда идет дальше.
         если пользователь не является владельцем беседы - команда завершается.
         если пользователя нет в бд - команда завершается.
-
-        :event (Event) - событие с longpoll сервера
         """
         try:
             if is_owner(user_id=event.from_id):
@@ -78,10 +76,7 @@ class QueueCreateCommand(BotCommand):
             self.end(event)
 
     def choose_chat(self, event: Event) -> None:
-        """ 
-        отправка сообщения о выборе беседы 
-        
-        """
+        """ отправка сообщения о выборе беседы """
         # полчение кнопок с беседами, где пользователь владелец
         chat_members: list[ChatMember] = all_owner_chat_members(user_id=event.from_id)
         self.api.messages.send(
@@ -184,19 +179,16 @@ class QueueCreateCommand(BotCommand):
             
     def save_users(self, event: Event) -> None:
         """ сохранение пользователей """
-        if event.text == "да":
-            members: list = get_members(
-                peer_id=self.__queue_info[event.from_id]["chat"].chat_vk_id
-            )
+        if event.text in ("да", "нет"):
+            if event.text == "да":
+                members: list = get_members(
+                    peer_id=self.__queue_info[event.from_id]["chat"].chat_vk_id
+                )
+            elif event.text == "нет":
+                members: list = []
             queue: Queue = Queue(
                 queue_name=self.__queue_info[event.from_id]["queue_name"],
                 queue_members=json.dumps(members)
-            )
-            queue.save()
-        elif event.text == "нет":
-            queue: Queue = Queue(
-                queue_name=self.__queue_info[event.from_id]["queue_name"],
-                queue_members="[]"
             )
             queue.save()
         else:
