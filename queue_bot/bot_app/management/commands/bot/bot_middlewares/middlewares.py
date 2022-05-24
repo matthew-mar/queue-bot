@@ -25,21 +25,6 @@ def get_week_day(day: int) -> str:
     return week_days[day]
 
 
-def get_datetime(queue_info: dict) -> datetime:
-    """
-    формирование даты и времени из словаря с информацией об очереди
-
-    :queue_info (dict)
-    """
-    return datetime(
-        year=queue_info["date"]["year"],
-        month=queue_info["date"]["month"],
-        day=queue_info["date"]["day"],
-        hour=queue_info["time"][0],
-        minute=queue_info["time"][1]
-    )
-
-
 def get_queue_day(queue_datetime: datetime) -> str:
     """ 
     вовзвращает дату начала очереди в формате "dd.mm" 

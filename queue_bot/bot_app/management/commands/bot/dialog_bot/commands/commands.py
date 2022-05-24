@@ -10,8 +10,9 @@ from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from datetime import datetime
 from bot_app.management.commands.bot.bot_middlewares.keyboard_middlewares import chat_buttons, dialog_standart_buttons, days_buttons, queues_buttons, queues_delete_buttons, queues_order_buttons, yes_no_buttons
-from bot_app.management.commands.bot.bot_middlewares.middlewares import get_datetime, get_member_order, get_members, get_queue_day, get_queue_order, get_queues_with_member, get_start_time, get_time, members_saved, no_queues, member_in_queue, queues_empty
+from bot_app.management.commands.bot.bot_middlewares.middlewares import get_member_order, get_members, get_queue_day, get_queue_order, get_queues_with_member, get_start_time, get_time, members_saved, no_queues, member_in_queue, queues_empty
 from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_member_chats, all_owner_chat_members, all_queues_in_member_chat, get_chat, get_chat_by_queue, get_queue_by_id, queue_add_member, queue_delete_member, queue_saved, is_owner
+from bot_app.management.commands.bot.bot_middlewares.get_datetime import get_datetime
 
 
 class DialogStartCommand(BotCommand):
