@@ -4,9 +4,7 @@ from abc import ABC
 
 
 class CommandsHandler(ABC):
-    """
-    абстрактный обработчик команд
-    """
+    """ Абстрактный класс обработчика команд """
 
     def __init__(self) -> None:
         # команды, которые может обрабатывать бот
@@ -17,4 +15,11 @@ class CommandsHandler(ABC):
         # на которой находится пользователь
         self._current_command: dict[int:str] = {}
 
-    def handle(self, event: Event) -> None: return None
+    def handle(self, event: Event) -> None: 
+        """ 
+        Обработка команд 
+        
+        :event (Event)
+            событие с longpoll сервера.
+        """
+        return None

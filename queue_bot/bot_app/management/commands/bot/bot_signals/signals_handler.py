@@ -8,4 +8,9 @@ class SignalsHandler(ABC):
         super().__init__()
         self._signals: dict[str:Signal] = {}
     
-    def handle(self, signal_name: str, args: dict) -> None: return None
+    def handle(self, signal_name: str, args: dict) -> None: 
+        signal: Signal = self._signals[signal_name](
+            signal_name=signal_name,
+            args=args
+        )
+        signal.execute()

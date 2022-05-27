@@ -8,5 +8,7 @@ class Signal(ABC):
         self.name: str = signal_name
         self.api: VkApiMethods = Session().api
     
-    def execute(self) -> None: return None
+    def execute(self) -> None: 
+        """ Выполнение сигнала """
+        return None
 

@@ -1,7 +1,6 @@
 import json
-from bot_app.management.commands.bot.bot_middlewares.db_middlewares import get_queue_by_id
+from bot_app.management.commands.bot.bot_middlewares.db_middlewares import get_queue_by_id, get_queue_order
 from bot_app.management.commands.bot.bot_middlewares.keyboard_middlewares import queue_enroll_buttons
-from bot_app.management.commands.bot.bot_middlewares.middlewares import get_queue_order
 from bot_app.management.commands.bot.bot_signals.signal import Signal
 from bot_app.management.commands.bot.dialog_bot.messages import NewQueueSignalMessages
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard

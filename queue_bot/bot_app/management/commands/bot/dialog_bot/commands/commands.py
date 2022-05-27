@@ -10,9 +10,8 @@ from bot_app.models import Chat, ChatMember, Member, Queue, QueueChat
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import Button, make_keyboard
 from datetime import datetime
 from bot_app.management.commands.bot.bot_middlewares.keyboard_middlewares import chat_buttons, dialog_standart_buttons, days_buttons, queues_buttons, queues_delete_buttons, queues_order_buttons, yes_no_buttons
-from bot_app.management.commands.bot.bot_middlewares.middlewares import get_member_order, get_members, get_queue_day, get_queue_order, get_queues_with_member, get_start_time, get_time, members_saved, no_queues, member_in_queue, queues_empty
-from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_member_chats, all_owner_chat_members, all_queues_in_member_chat, get_chat, get_chat_by_queue, get_queue_by_id, queue_add_member, queue_delete_member, queue_saved, is_owner
-from bot_app.management.commands.bot.bot_middlewares.get_datetime import get_datetime
+from bot_app.management.commands.bot.bot_middlewares.db_middlewares import all_member_chats, all_owner_chat_members, all_queues_in_member_chat, get_chat, get_chat_by_queue, get_queue_by_id, queue_add_member, queue_delete_member, queue_saved, is_owner, get_member_order, get_members, get_queue_day, get_queue_order, get_queues_with_member, get_start_time, members_saved, no_queues, member_in_queue, queues_empty
+from bot_app.management.commands.bot.bot_middlewares.time_middlewares import get_date, get_datetime
 
 
 class DialogStartCommand(BotCommand):
@@ -20,8 +19,8 @@ class DialogStartCommand(BotCommand):
     def __init__(self) -> None:
         super().__init__()
     
-    def start(self, event: Event, **kwargs) -> Any:
-        super().start(event)
+    def start(self, event: Event) -> None:
+        super().start(event=event)
     
     def start_action(self, event: Event) -> None:
         """
@@ -35,7 +34,7 @@ class DialogStartCommand(BotCommand):
                 buttons=dialog_standart_buttons
             )
         )
-        self.end(event)
+        self.end(user_id=event.from_id)
 
 
 class QueueCreateCommand(BotCommand):
@@ -45,8 +44,8 @@ class QueueCreateCommand(BotCommand):
         # информация об очереди будет закрепляться за user.id 
         self.__queue_info: dict[int:dict] = {}
 
-    def start(self, event: Event, **kwargs) -> Any:
-        super().start(event)
+    def start(self, event: Event) -> None:
+        super().start(event=event)
     
     def start_action(self, event: Event) -> None:
         """
@@ -67,13 +66,13 @@ class QueueCreateCommand(BotCommand):
                     peer_id=event.peer_id,
                     message=QueueCreateMessages.NOT_OWNER_MESSAGE
                 )
-                self.end(event)
+                self.end(user_id=event.from_id)
         except MemberNotSavedError:
             self.api.messages.send(
                 peer_id=event.peer_id,
                 message=QueueCreateMessages.MEMBER_NOT_SAVED_MESSAGE
             )
-            self.end(event)
+            self.end(user_id=event.from_id)
 
     def choose_chat(self, event: Event) -> None:
         """ отправка сообщения о выборе беседы """
@@ -147,7 +146,7 @@ class QueueCreateCommand(BotCommand):
     def save_day(self, event: Event) -> None:
         """ сохранения дня """
         if event.button_type == "week_day":
-            self.__queue_info[event.from_id]["date"] = event.payload["date"]
+            self.__queue_info[event.from_id]["date"] = get_date(date=event.payload["date"])
             
             self.go_next(
                 event=event,
@@ -164,7 +163,10 @@ class QueueCreateCommand(BotCommand):
     def save_time(self, event: Event) -> None:
         """ сохраняет введенное время """
         try:
-            self.__queue_info[event.from_id]["time"] = get_time(time_string=event.text)
+            self.__queue_info[event.from_id]["datetime"] = get_datetime(
+                time_string=event.text, 
+                date=self.__queue_info[event.from_id]["date"]
+            )
 
             self.go_next(
                 event=event,
@@ -206,9 +208,13 @@ class QueueCreateCommand(BotCommand):
         queue_info: dict = self.__queue_info[event.from_id]
         chat: Chat = queue_info["chat"]
         queue: Queue = queue_info["queue"]
-        queue_datetime: datetime = get_datetime(queue_info)
+        queue_datetime: datetime = queue_info["datetime"]
 
-        if queue_saved(queue_info):  # если такая очередь сохранена
+        if queue_saved(
+            queue_name=queue.queue_name, 
+            queue_datetime=queue_datetime, 
+            chat=chat
+        ):  # если такая очередь сохранена
             queue_info["queue"].delete()
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -233,14 +239,14 @@ class QueueCreateCommand(BotCommand):
                         "chat_id": chat.chat_vk_id,
                         "queue_id": queue.id,
                         "queue_day": get_queue_day(queue_datetime),
-                        "queue_start_time": get_start_time(time=queue_info["time"]),
+                        "queue_start_time": get_start_time(queue_datetime=queue_info["datetime"]),
                         "members_saved": members_saved(queue_members=queue.queue_members)
                     }
                 }
             )
 
         self.__queue_info.pop(event.from_id)
-        self.end(event)
+        self.end(user_id=event.from_id)
 
 
 class QueueEnrollCommand(BotCommand):
@@ -270,7 +276,7 @@ class QueueEnrollCommand(BotCommand):
                 peer_id=event.peer_id,
                 message=QueueEnrollMessages.NO_QUEUES_MESSAGE
             )
-            self.end(event)
+            self.end(user_id=event.from_id)
         else:
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -305,7 +311,7 @@ class QueueEnrollCommand(BotCommand):
                     buttons=dialog_standart_buttons
                 )
             )
-            self.end(event)
+            self.end(user_id=event.from_id)
         else:
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -340,7 +346,7 @@ class QueueQuitCommand(BotCommand):
                     buttons=dialog_standart_buttons
                 )
             )
-            self.end(event)
+            self.end(user_id=event.from_id)
         else:
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -364,8 +370,18 @@ class QueueQuitCommand(BotCommand):
                     buttons=dialog_standart_buttons
                 )
             )
+            
+            send_signal(
+                to="dialog",
+                data={
+                    "signal_name": "next_in_queue_signal",
+                    "args": {
+                        "queue_id": event.payload["queue_id"]
+                    }
+                }
+            )
 
-            self.end(event)
+            self.end(user_id=event.from_id)
         else:
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -400,7 +416,7 @@ class GetQueuePlaceCommand(BotCommand):
                     buttons=dialog_standart_buttons
                 )
             )
-            self.end(event)
+            self.end(user_id=event.from_id)
         else:
             self.api.messages.send(
                 peer_id=event.peer_id,
@@ -428,4 +444,4 @@ class GetQueuePlaceCommand(BotCommand):
                     buttons=dialog_standart_buttons
                 )
             )
-            self.end(event)
+            self.end(user_id=event.from_id)

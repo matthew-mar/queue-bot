@@ -9,8 +9,4 @@ class ChatSignalsHandler(SignalsHandler):
         self._signals["new_queue"] = NewQueueSignal
     
     def handle(self, signal_name: str, args: dict) -> None:
-        signal: Signal = self._signals[signal_name](
-            signal_name=signal_name,
-            args=args
-        )
-        signal.execute()
+        super().handle(signal_name, args)

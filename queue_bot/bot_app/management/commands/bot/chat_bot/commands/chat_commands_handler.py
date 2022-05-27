@@ -1,6 +1,10 @@
 from bot_app.management.commands.bot.bot_commands.command import BotCommand
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import CommandNotExistError
-from bot_app.management.commands.bot.chat_bot.commands.commands import ChatInvitationCommand, ChatStartCommand, CickUserCommand, QueueEnrollCommand, InviteUserCommand
+
+from bot_app.management.commands.bot.chat_bot.commands.commands import (
+    ChatInvitationCommand, ChatStartCommand, CickUserCommand, 
+    QueueEnrollCommand, InviteUserCommand)
+
 from bot_app.management.commands.bot.vk_api.longpoll.responses import Event, EventType
 from bot_app.management.commands.bot.bot_commands.commands_handler import CommandsHandler
 
@@ -9,7 +13,7 @@ BOT_NAME: str = "[club206732640|@bboot]"
 
 
 class ChatCommandsHandler(CommandsHandler):
-    """ обработчик команд из бесед """
+    """ Обработчик команд из бесед """
 
     def __init__(self) -> None:
         super().__init__()
