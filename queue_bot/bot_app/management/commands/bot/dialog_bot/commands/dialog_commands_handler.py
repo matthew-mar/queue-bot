@@ -9,23 +9,23 @@ class DialogCommandsHandler(CommandsHandler):
     """ обработчик команд в личных сообщениях """
     def __init__(self) -> None:
         super().__init__()
-        self._commands["начать"] = DialogStartCommand()
-        self._commands["создать очередь"] = QueueCreateCommand()
-        self._commands["записаться в очередь"] = QueueEnrollCommand()
-        self._commands["удалиться из очереди"] = QueueQuitCommand()
-        self._commands["получить место в очереди"] = GetQueuePlaceCommand()
+        self._commands["начать"] = DialogStartCommand
+        self._commands["создать очередь"] = QueueCreateCommand
+        self._commands["записаться в очередь"] = QueueEnrollCommand
+        self._commands["удалиться из очереди"] = QueueQuitCommand
+        self._commands["получить место в очереди"] = GetQueuePlaceCommand
 
     def handle(self, event: Event) -> None:
         try:
             command_text: str = event.text.lower()
             
             if event.from_id in self._current_command:
-                if self._commands[self._current_command[event.from_id]].command_ended:
-                    self._current_command[event.from_id] = command_text
+                if self._current_command[event.from_id].command_ended:
+                    self._current_command[event.from_id] = self._commands[command_text]()
             else:
-                self._current_command[event.from_id] = command_text
+                self._current_command[event.from_id] = self._commands[command_text]()
                 
-            command: BotCommand = self._commands[self._current_command[event.from_id]]
+            command: BotCommand = self._current_command[event.from_id]
             command.start(event)
         except KeyError:
             self._current_command.pop(event.from_id)

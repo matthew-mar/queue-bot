@@ -32,3 +32,7 @@ class NoChatMemberConnection(Exception):
 
 class QueueChatDoesNotExistError(Exception):
     pass
+
+
+class QueueEmptyError(Exception):
+    pass

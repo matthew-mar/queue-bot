@@ -17,7 +17,7 @@ def get_keyboard() -> dict:
 
 
 class Button:
-    def __init__(self, label: str, color: str = "secondary", payload: dict = {}) -> None:
+    def __init__(self, label: str, color: str = "primary", payload: dict = {}) -> None:
         """ создание кнопки """
         self.label: str = label
         self.color: str = color

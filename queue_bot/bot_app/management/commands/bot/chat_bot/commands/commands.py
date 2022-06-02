@@ -34,7 +34,7 @@ class ChatInvitationCommand(BotCommand):
             message=ChatInvitationMessages.START_MESSAGE,
             keyboard=make_keyboard(
                 inline=False,
-                buttons=[Button(label="start").button_json]
+                buttons=[Button(label="start", color="positive").button_json]
             )
         )
         self.end(user_id=event.from_id)

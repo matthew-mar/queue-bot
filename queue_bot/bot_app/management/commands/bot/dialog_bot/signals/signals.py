@@ -3,6 +3,7 @@ from bot_app.management.commands.bot.bot_middlewares.db_middlewares import first
 from bot_app.management.commands.bot.dialog_bot.messages import QueueEnrollMessages
 from bot_app.management.commands.bot.bot_middlewares.keyboard_middlewares import dialog_standart_buttons
 from bot_app.management.commands.bot.vk_api.keyboard.keyboard import make_keyboard
+from bot_app.management.commands.bot.bot_commands.commands_exceptions import QueueEmptyError
 
 
 class QueueEnrollFromChatSignal(Signal):
@@ -46,11 +47,14 @@ class NextInQueueSignal(Signal):
         queue = get_queue_by_id(queue_id=self.queue_id)
         chat = get_chat_by_queue(queue=queue)
         message = "вы следующий в очереди {} из беседы {}".format(queue.queue_name, chat.chat_name)
-        self.api.messages.send(
-            peer_id=first_in_queue(queue_id=self.queue_id),
-            message=message,
-            keyboard=make_keyboard(
-                inline = False,
-                buttons=dialog_standart_buttons
+        try:
+            self.api.messages.send(
+                peer_id=first_in_queue(queue_id=self.queue_id),
+                message=message,
+                keyboard=make_keyboard(
+                    inline = False,
+                    buttons=dialog_standart_buttons
+                )
             )
-        )
+        except QueueEmptyError:
+            queue.delete()

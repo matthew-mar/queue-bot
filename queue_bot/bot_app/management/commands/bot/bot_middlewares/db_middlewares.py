@@ -11,7 +11,7 @@ from bot_app.models import Member, Chat, Queue, QueueChat, ChatMember
 from bot_app.management.commands.bot.bot_commands.commands_exceptions import (
     ChatAlreadySavedError, MemberNotSavedError, ChatDoesNotExistError, 
     NoChatMemberConnection, QueueChatDoesNotExistError, 
-    QueueDoesNotExistError)
+    QueueDoesNotExistError, QueueEmptyError)
 
 from bot_app.management.commands.bot.bot_middlewares.vk_api_middlewares import (
     get_chat_members, get_user)
@@ -191,8 +191,11 @@ def all_queues_in_member_chat(user_id: int) -> list[Queue]:
 
 
 def first_in_queue(queue_id: int):
-    queue = get_queue_by_id(queue_id=queue_id)
-    return get_members_ids(queue_members=queue.queue_members)[0]
+    try:
+        queue = get_queue_by_id(queue_id=queue_id)
+        return get_members_ids(queue_members=queue.queue_members)[0]
+    except IndexError:
+        raise QueueEmptyError
 
 
 def get_queue_by_id(queue_id: int) -> Queue:
